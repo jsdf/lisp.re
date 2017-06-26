@@ -2,7 +2,7 @@ build:
 	jbuilder build
 
 run: build
-	./_build/install/default/bin/reason-native-bin
+	./_build/install/default/bin/lisp
 
 test:
 	jbuilder runtest

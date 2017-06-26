@@ -1,10 +1,9 @@
-# ReasonNativeProject
+# lisp.re
 
-Installation of [`Reason`](http://facebook.github.io/reason/) project for native compilation development.
+A Lisp in Reason.
 
-[More info on the workflow](http://facebook.github.io/reason/nativeWorkflow.html).
 
-[![Build Status](https://travis-ci.org/reasonml/ReasonNativeProject.svg?branch=master)](https://travis-ci.org/reasonml/ReasonNativeProject)
+Steps to get to this point:
 
 ## Install
 
@@ -18,50 +17,81 @@ opam update # get the latest opam packages data. Skip this optionally
 opam pin add -y ReasonNativeProject .
 ```
 
-### Build
+Now we'll customize the project.
 
-There are a couple of built-in commands in the `Makefile`.
+### Customizing ReasonNativeProject
 
-```sh
-make build    # build/rebuild your files
-make clean    # clean the compiled artifacts
+The source will live in a single Reason file: `./bin/lisp.re`. Rename the existing `./bin/test.re` to `./bin/lisp.re`. Change the contents of the file to:
+
+```reason
+print_endline "Hello Reason Native";
 ```
 
-A single test file `./src/test.re` is included. Make a simple change to it and
-then run the commands above to see it effect the output.
+There is also a jbuild file alongside the Reason source file. This contains instructions to the build system. Change the contents of `./bin/jbuild` to:
 
-The built output is in `_build`. Try running it with `_build/src/test.native`.
+```lisp
+(jbuild_version 1)
 
-## Developing Your Project
+(executable
+ ((name lisp)
+  ; This will be installable as a global binary
+  (public_name lisp)))
+```
 
-`ReasonNativeProject` is meant to be the starting point of your own project. You'll
-want to make use of existing libraries in your app, so browse the growing set
-of `opam` packages in the [opam repository](http://opam.ocaml.org/packages/).
+Run `make build` to build the project.
+
+The built output is in `_build`. Try running it with `_build/default/bin/lisp.exe`.
+
+You can also just run `make run`.
+
+You should see the output `Hello Reason Native`.
 
 ##### Add Another Dependency
 
-Edit your `opam` file so that you depend on a particular opam package and range
-of versions.
+You'll want to make use of existing libraries in your app, so browse the growing set of `opam` packages in the [opam repository](http://opam.ocaml.org/packages/).
 
-In addition you may have to tweak the buildstep to recognize the dependency, by changing `build.ml` within the `pkg` folder. and add the following for you dependency:
-```ocaml
-...
-OS.Cmd.run @@ Cmd.(
-  ocamlbuild % "-use-ocamlfind"
-              %% (v "-I" % "src")
-              %% (v "-pkg" % "[PACKAGE]") (* <---- only change is this line*)
-              %% of_list files)
-...
+To add a dependency you need to edit your `ReasonNativeProject.opam` file so that you depend on a particular opam package and range of versions. For example:
+
+```
+depends: [
+  "jbuilder" {build}
+  "reason"  {= "2.0.0"}
+  "containers"  {>= "1.2"}
+]
+```
+Here we've added the 'containers' library, which is basically an extension of the (very austere) OCaml standard library. We've specified that at least version 1.2 must be used.
+
+Now run
+
+```bash
+opam pin add -y ReasonNativeProject .
 ```
 
-Finally For your editor to pick up the dependency and fancy autocomplete etc. make sure to add the package in your `.merlin` file:
-```ocaml
-PKG topkg reason [PACKAGE]
+to install the new dependency.
+
+
+Change the contents of `./bin/jbuild` to:
+
+```lisp
+(jbuild_version 1)
+
+(executable
+ ((name lisp)
+  ; This will be installable as a global binary
+  (public_name lisp)
+  ; and it depends on a library from opam
+  (libraries (containers))))
 ```
 
-### Creating Libraries
+In `./bin/lisp.re`:
 
-See the [OPAM instructions](https://opam.ocaml.org/doc/Packaging.html).
+```reason
+open Containers;
+
+print_endline "Hello Reason Native";
+```
+
+`make run` and you should see the same output again. If you get an error about `Containers`, you might need to try installing the dependencies again.
 
 ## Troubleshooting
 

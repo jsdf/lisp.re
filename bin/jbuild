@@ -1,8 +1,8 @@
 (jbuild_version 1)
 
 (executable
- ((name test)
+ ((name lisp)
   ; This will be installable as a global binary
-  (public_name reason-native-bin)
+  (public_name lisp)
   ; and it depends on 2 local libraries
-  (libraries (lib internal))))
+  (libraries (containers))))
