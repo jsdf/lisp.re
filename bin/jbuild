@@ -4,5 +4,6 @@
  ((name lisp)
   ; This will be installable as a global binary
   (public_name lisp)
-  ; and it depends on 2 local libraries
-  (libraries (containers))))
+  ; and it depends on a library from opam
+  (libraries (containers))
+  ))
