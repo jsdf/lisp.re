@@ -78,8 +78,9 @@ let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
 let parse program => {
   let tokens = ref (tokenize program);
   let value = read_from_tokens (tokens);
-  if ((List.length !tokens) > 0) {
-    failwith ("parsing finished with tokens remaining: " ^ (String.concat " " !tokens));
+  if (!tokens != []) {
+    print_endline @@ "parsing finished with tokens remaining: " ^ (String.concat " " !tokens);
+    failwith "parsing finished with tokens remaining";
   };
   value;
 };
@@ -132,7 +133,11 @@ let read_eval_print_loop () => {
   while true {
     print_string "lisp.re> ";
     let input = read_line ();
-    read_eval_print (String.trim input);
+    try (
+      read_eval_print (String.trim input)
+    ) {
+      | Failure message => print_endline @@ "Error: " ^ message;
+    };
   }
 };
 
@@ -145,4 +150,4 @@ try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
   | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
 };
 
-/* read_eval_print_loop (); */
+read_eval_print_loop ();
