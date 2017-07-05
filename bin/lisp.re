@@ -108,46 +108,57 @@ let call_proc (name: string) (args: list value) => {
   };
 };
 
-let rec eval value => {
-  switch value {
-    | SymbolVal _ => value
-    | NumberVal _ => value
-    | ListVal [SymbolVal sym_to_call, ...args] => {
+type env = Hashtbl.t string value;
+let standard_env () :env => {
+  let env: env = Hashtbl.create 1000;
+  env;
+};
 
-      let evaluated_args = List.map eval args;
+let rec eval value env => {
+  switch value {
+    | SymbolVal name => Hashtbl.find env name;
+    | NumberVal _ => value
+    | ListVal [SymbolVal "define", SymbolVal name, value] => {
+      Hashtbl.add env name value;
+      SymbolVal "#f";
+    }
+    | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
+    | ListVal [SymbolVal sym_to_call, ...args] => {
+      let evaluated_args = List.map (fun arg => eval arg env) args;
       call_proc sym_to_call evaluated_args;
     }
     | _ => failwith "unknown list form"
   };
 };
 
-let read_eval_print program => {
+let read_eval_print program env => {
   print_string "=> ";
   parse program
-    |> eval
+    |> (fun program_value => eval program_value env)
     |> format_val
     |> print_endline;
 };
 
-let read_eval_print_loop () => {
+let read_eval_print_loop env => {
   while true {
     print_string "lisp.re> ";
     let input = read_line ();
     try (
-      read_eval_print (String.trim input)
+      read_eval_print (String.trim input) env
     ) {
       | Failure message => print_endline @@ "Error: " ^ message;
     };
   }
 };
 
-read_eval_print "(+ 1 2 (* 3 4))";
-read_eval_print "(+ (* 3 4) 2)";
-read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
+let global_env = standard_env ();
+read_eval_print "(+ 1 2 (* 3 4))" global_env;
+read_eval_print "(+ (* 3 4) 2)" global_env;
+read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" global_env;
 
-try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
+try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" global_env) {
   | Failure "unexpected EOF while reading list" => ()
   | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
 };
 
-read_eval_print_loop ();
+read_eval_print_loop global_env;
