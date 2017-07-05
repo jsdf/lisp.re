@@ -47,14 +47,8 @@ let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
     | [] => failwith "unexpected EOF while reading"
     | ["(", ...rest] => {
       remaining_tokens := rest;
-      let list_values = ref ([]: list value);
-      while (List.hd !remaining_tokens != ")") {
-        list_values := (List.cons (read_from_tokens remaining_tokens) !list_values);
-      };
-      /* we need to reverse list_values because we built the list by using cons to
-      push values on to the head of the list, meaning that it's 'backwards'
-      (the head is at the end) */
-      ListVal (List.rev !list_values);
+      let values_list: list value = [];
+      read_list_from_tokens remaining_tokens values_list;
     }
     | [")", ...rest] => failwith "unexpected )"
     | [token, ...rest] => {
@@ -62,17 +56,74 @@ let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
       atom token
     }
   };
+} and read_list_from_tokens = fun remaining_tokens values_list => {
+    switch !remaining_tokens {
+      | [] => failwith "unexpected EOF while reading list"
+      | [")", ...rest] => {
+        remaining_tokens := rest;
+        /* we need to reverse values_list because we built the list by using cons to
+        push values on to the head of the list, meaning that it's 'backwards'
+        (the last value is at the head) */
+        ListVal (List.rev values_list);
+      }
+      | _ => {
+        let value = read_from_tokens remaining_tokens;
+        let next_values_list = (List.cons value values_list);
+        read_list_from_tokens remaining_tokens next_values_list;
+      }
+    };
 };
 
 /* Read a Scheme expression from a string. */
 let parse program => {
-  let tokens = tokenize program;
-  read_from_tokens (ref tokens);
+  let tokens = ref (tokenize program);
+  let value = read_from_tokens (tokens);
+  if ((List.length !tokens) > 0) {
+    failwith ("parsing finished with tokens remaining: " ^ (String.concat " " !tokens));
+  };
+  value;
+};
+
+let unwrap_number_value (value: value) :float => {
+  switch value {
+    | NumberVal x => x
+    | _ => failwith "expected number value"
+  };
+};
+
+let apply_arithmetic func (args: list value) :value => {
+  let numbers = (List.map unwrap_number_value args);
+  let result = (List.fold_left func (List.hd numbers) (List.tl numbers));
+  NumberVal result;
+};
+
+let call_proc (name: string) (args: list value) => {
+  switch (name) {
+    | "+" => apply_arithmetic (+.) args
+    | "-" => apply_arithmetic (-.) args
+    | "*" => apply_arithmetic (*.) args
+    | "/" => apply_arithmetic (/.) args
+    | _ => failwith "unknown proc"
+  };
+};
+
+let rec eval value => {
+  switch value {
+    | SymbolVal _ => value
+    | NumberVal _ => value
+    | ListVal [SymbolVal sym_to_call, ...args] => {
+
+      let evaluated_args = List.map eval args;
+      call_proc sym_to_call evaluated_args;
+    }
+    | _ => failwith "unknown list form"
+  };
 };
 
 let read_eval_print program => {
   print_string "=> ";
   parse program
+    |> eval
     |> format_val
     |> print_endline;
 };
@@ -86,5 +137,12 @@ let read_eval_print_loop () => {
 };
 
 read_eval_print "(+ 1 2 (* 3 4))";
+read_eval_print "(+ (* 3 4) 2)";
+read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
 
-read_eval_print_loop ();
+try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
+  | Failure "unexpected EOF while reading list" => ()
+  | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
+};
+
+/* read_eval_print_loop (); */
