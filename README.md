@@ -7,7 +7,9 @@ lisp.re> (begin (define r 10) (* pi (* r r)))
 => 314.159265359
 ```
 
-to build and run this repo, follow the [Reason native workflow](http://facebook.github.io/reason/nativeWorkflow.html), then:
+The entire source can be found in [this file](https://github.com/jsdf/lisp.re/blob/master/bin/lisp.re)
+
+To build and run this repo, follow the [Reason native workflow](http://facebook.github.io/reason/nativeWorkflow.html), then:
 
 ```bash
 opam update
