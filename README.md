@@ -13,7 +13,7 @@ To build and run this repo, follow the [Reason native workflow](http://facebook.
 
 ```bash
 opam update
-opam pin add -y lisp_re .
+opam pin add -y ReasonNativeProject .
 make run
 ```
 
@@ -112,3 +112,7 @@ print_endline "Hello Reason Native";
 In general, if something goes wrong, try upgrading your install of the project
 by running `opam upgrade ReasonNativeProject`, or if it failed to install and you
 later fixed it, `opam install ReasonNativeProject`.
+
+## TODO
+
+write tutorial
