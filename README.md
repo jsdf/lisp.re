@@ -1,6 +1,6 @@
 # lisp.re
 
-A Lisp in Reason.
+A Lisp in Reason. Based on [(How to Write a (Lisp) Interpreter (in Python))](http://norvig.com/lispy.html)
 
 ```scheme
 lisp.re> (begin (define r 10) (* pi (* r r)))
