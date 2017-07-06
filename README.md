@@ -7,7 +7,15 @@ lisp.re> (begin (define r 10) (* pi (* r r)))
 => 314.159265359
 ```
 
-Steps to get to this point:
+to build and run this repo, follow the [Reason native workflow](http://facebook.github.io/reason/nativeWorkflow.html), then:
+
+```bash
+opam update
+opam pin add -y lisp_re .
+make run
+```
+
+# Tutorial (how to create this from scratch)
 
 ## Install
 
