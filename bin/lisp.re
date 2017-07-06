@@ -17,9 +17,11 @@ let print_tokens_list list =>
   print_endline (String.concat " " list);
 
 type value =
+  | NothingVal
   | NumberVal float
   | SymbolVal string
-  | ListVal (list value);
+  | ListVal (list value)
+  | CallableVal (list string) value;
 
 /* Numbers become numbers; every other token is a symbol. */
 let atom token: value => {
@@ -39,6 +41,8 @@ let rec format_val = fun value: string => {
    }
    | NumberVal x => Printf.sprintf "%.12g" x
    | SymbolVal x => x
+   | NothingVal => ""
+   | CallableVal _ _ => "[callable]"
   }
 };
 
@@ -93,20 +97,17 @@ let unwrap_number_value (value: value) :float => {
   };
 };
 
+let unwrap_symbol_value (value: value) :string => {
+  switch value {
+    | SymbolVal x => x
+    | _ => failwith "expected symbol value"
+  };
+};
+
 let apply_arithmetic func (args: list value) :value => {
   let numbers = (List.map unwrap_number_value args);
   let result = (List.fold_left func (List.hd numbers) (List.tl numbers));
   NumberVal result;
-};
-
-let call_proc (name: string) (args: list value) => {
-  switch (name) {
-    | "+" => apply_arithmetic (+.) args
-    | "-" => apply_arithmetic (-.) args
-    | "*" => apply_arithmetic (*.) args
-    | "/" => apply_arithmetic (/.) args
-    | _ => failwith "unknown proc"
-  };
 };
 
 let pi = acos (-1.0);
@@ -127,24 +128,52 @@ let rec eval value env => {
     };
     | NumberVal _ => value
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
-      Hashtbl.add env name value;
-      SymbolVal "#f";
+      Hashtbl.add env name (eval value env);
+      NothingVal;
     }
     | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
     | ListVal [SymbolVal "begin", ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
       switch (List.rev evaluated_args) {
-        | [] => SymbolVal "#f"
+        | [] => NothingVal
         | [head, ...rest] => head
       };
     }
+    | ListVal [SymbolVal "lambda", ListVal args_names, body_value] => {
+      CallableVal (List.map unwrap_symbol_value args_names) body_value;
+    }
+    | ListVal [SymbolVal "lambda", ...args] => failwith "invalid usage of 'lambda'"
     | ListVal [SymbolVal sym_to_call, ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
-      call_proc sym_to_call evaluated_args;
+      call_proc sym_to_call evaluated_args env;
     }
     | _ => failwith "unknown list form"
   };
+} and call_proc (name: string) (args: list value) (env: env_table) => {
+  switch (name) {
+    | "+" => apply_arithmetic (+.) args
+    | "-" => apply_arithmetic (-.) args
+    | "*" => apply_arithmetic (*.) args
+    | "/" => apply_arithmetic (/.) args
+    | name => {
+        let proc = try (Hashtbl.find env name) {
+          | Not_found => failwith @@ "attempted to call undefined function: " ^ name
+        };
+        let (arg_names, body) = switch proc {
+          | CallableVal names body => (names, body)
+          | _ => failwith @@ "expected callable, got " ^ format_val proc
+        };
+        let fn_env = Hashtbl.copy env;
+        List.iter2 (fun name arg => {
+          Hashtbl.add fn_env name arg;
+        }) arg_names args;
+
+        eval body fn_env;
+    }
+    /* | _ => failwith "unknown proc" */
+  };
 };
+
 
 let read_eval_print program env => {
   let result = parse program
@@ -168,5 +197,31 @@ let read_eval_print_loop env => {
   }
 };
 
+let test_env = standard_env ();
+
+print_endline "test stuff";
+read_eval_print "(+ 1 2 (* 3 4))" test_env;
+read_eval_print "(+ (* 3 4) 2)" test_env;
+read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" test_env;
+
+print_endline "test begin";
+let begin_test = "(begin
+    (define r 10)
+    (* pi (* r r)))";
+read_eval_print begin_test test_env;
+
+print_endline "test lambda";
+let lambda_test = "(begin
+    (define  sq (lambda (x) (* x x)))
+    (sq 2))";
+read_eval_print lambda_test test_env;
+
+print_endline "test invalid expression";
+try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" test_env) {
+  | Failure "unexpected EOF while reading list" => print_endline "ok";
+  | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
+};
+
+print_endline "start repl";
 let global_env = standard_env ();
 read_eval_print_loop global_env;
