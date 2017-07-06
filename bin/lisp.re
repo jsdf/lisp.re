@@ -6,6 +6,7 @@ let tokenize input: list string => {
     input
       |> (replace sub::"(" by::" ( " )
       |> (replace sub::")" by::" ) ")
+      |> (replace sub::"\n" by::"")
       |> split by::" "
   );
   /* filter out empty strings */
@@ -108,21 +109,35 @@ let call_proc (name: string) (args: list value) => {
   };
 };
 
-type env = Hashtbl.t string value;
-let standard_env () :env => {
-  let env: env = Hashtbl.create 1000;
+let pi = acos (-1.0);
+
+type env_table = Hashtbl.t string value;
+let standard_env () => {
+  let env: env_table = Hashtbl.create 1000;
+  Hashtbl.add env "pi" (NumberVal pi);
   env;
 };
 
 let rec eval value env => {
   switch value {
-    | SymbolVal name => Hashtbl.find env name;
+    | SymbolVal name => {
+      try (Hashtbl.find env name) {
+        | Not_found => failwith @@ "attempted to access undefined variable: " ^ name
+      }
+    };
     | NumberVal _ => value
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
       Hashtbl.add env name value;
       SymbolVal "#f";
     }
     | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
+    | ListVal [SymbolVal "begin", ...args] => {
+      let evaluated_args = List.map (fun arg => eval arg env) args;
+      switch (List.rev evaluated_args) {
+        | [] => SymbolVal "#f"
+        | [head, ...rest] => head
+      };
+    }
     | ListVal [SymbolVal sym_to_call, ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
       call_proc sym_to_call evaluated_args;
@@ -132,9 +147,11 @@ let rec eval value env => {
 };
 
 let read_eval_print program env => {
+  let result = parse program
+    |> (fun program_value => eval program_value env);
+
   print_string "=> ";
-  parse program
-    |> (fun program_value => eval program_value env)
+  result
     |> format_val
     |> print_endline;
 };
@@ -151,14 +168,25 @@ let read_eval_print_loop env => {
   }
 };
 
-let global_env = standard_env ();
-read_eval_print "(+ 1 2 (* 3 4))" global_env;
-read_eval_print "(+ (* 3 4) 2)" global_env;
-read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" global_env;
+let test_env = standard_env ();
 
-try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" global_env) {
-  | Failure "unexpected EOF while reading list" => ()
+print_endline "test stuff";
+read_eval_print "(+ 1 2 (* 3 4))" test_env;
+read_eval_print "(+ (* 3 4) 2)" test_env;
+read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" test_env;
+
+print_endline "test begin";
+let begin_test = "(begin
+    (define r 10)
+    (* pi (* r r)))";
+read_eval_print begin_test test_env;
+
+print_endline "test invalid expression";
+try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" test_env) {
+  | Failure "unexpected EOF while reading list" => print_endline "ok";
   | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
 };
 
+print_endline "start repl";
+let global_env = standard_env ();
 read_eval_print_loop global_env;
