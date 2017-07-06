@@ -5,6 +5,11 @@ A Lisp in Reason.
 ```scheme
 lisp.re> (begin (define r 10) (* pi (* r r)))
 => 314.159265359
+
+lisp.re> (define square (lambda (x) (* x x)))
+=>
+lisp.re> (square 2)
+=> 4
 ```
 
 The entire source can be found in [this file](https://github.com/jsdf/lisp.re/blob/master/bin/lisp.re)
