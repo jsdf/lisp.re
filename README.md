@@ -2,6 +2,10 @@
 
 A Lisp in Reason.
 
+```scheme
+lisp.re> (begin (define r 10) (* pi (* r r)))
+=> 314.159265359
+```
 
 Steps to get to this point:
 

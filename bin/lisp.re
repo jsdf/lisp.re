@@ -168,25 +168,5 @@ let read_eval_print_loop env => {
   }
 };
 
-let test_env = standard_env ();
-
-print_endline "test stuff";
-read_eval_print "(+ 1 2 (* 3 4))" test_env;
-read_eval_print "(+ (* 3 4) 2)" test_env;
-read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" test_env;
-
-print_endline "test begin";
-let begin_test = "(begin
-    (define r 10)
-    (* pi (* r r)))";
-read_eval_print begin_test test_env;
-
-print_endline "test invalid expression";
-try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" test_env) {
-  | Failure "unexpected EOF while reading list" => print_endline "ok";
-  | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
-};
-
-print_endline "start repl";
 let global_env = standard_env ();
 read_eval_print_loop global_env;
