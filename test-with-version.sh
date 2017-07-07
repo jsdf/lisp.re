@@ -9,6 +9,6 @@ opam switch "${OCAML_VERSION}"
 eval `opam config env`
 opam update
 opam install -y re
-opam pin add -y ReasonNativeProject .
+opam pin add -y lisp_re .
 make run
 git diff --exit-code
