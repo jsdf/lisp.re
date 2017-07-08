@@ -194,13 +194,13 @@ let rec eval value env => {
     | ListVal [SymbolVal "lambda", ...args] => failwith "invalid usage of 'lambda'"
     | ListVal [SymbolVal "quote", value_to_quote] => value_to_quote
     | ListVal [SymbolVal "quote", ...args] => failwith "invalid usage of 'quote'"
-    | ListVal [SymbolVal sym_to_call, ...args] => {
+    | ListVal [SymbolVal name_to_call, ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
-      call_proc sym_to_call evaluated_args env;
+      call_by_name name_to_call evaluated_args env;
     }
     | _ => failwith "unknown list form"
   };
-} and call_proc (name: string) (args: list value) (env: env_table) => {
+} and call_by_name (name: string) (args: list value) (env: env_table) => {
   switch (name) {
     | "+" => apply_arithmetic (+.) args
     | "-" => apply_arithmetic (-.) args
@@ -211,6 +211,16 @@ let rec eval value env => {
     | "<=" => apply_number_comparator (<=) args
     | ">=" => apply_number_comparator (>=) args
     | "=" => are_structurally_equal args
+    | "apply" =>
+      switch args {
+        | [maybe_callable, ...callable_args] => {
+          switch maybe_callable {
+            | CallableVal _ _ => call_callable  maybe_callable "[lambda]" callable_args env
+            | _ => failwith "cannot use 'apply' with non-callable first argument"
+          }
+        }
+        | _ => failwith "invalid usage of 'apply'"
+      }
     | "begin" => {
       switch (List.rev args) {
         | [] => failwith "invalid usage of 'begin'"
@@ -245,22 +255,35 @@ let rec eval value env => {
       })
     }
     | name => {
-        let proc = try (Hashtbl.find env name) {
-          | Not_found => failwith @@ "attempted to call undefined function: " ^ name
-        };
-        let (arg_names, body) = switch proc {
-          | CallableVal names body => (names, body)
-          | _ => failwith @@ "expected callable, got " ^ format_val proc
-        };
-        let fn_env = Hashtbl.copy env;
-        List.iter2 (fun name arg => {
-          Hashtbl.add fn_env name arg;
-        }) arg_names args;
-
-        eval body fn_env;
+      let callable = try (Hashtbl.find env name) {
+        | Not_found => failwith @@ "attempted to call undefined function: " ^ name
+      };
+      call_callable callable name args env;
     }
-    /* | _ => failwith "unknown proc" */
   };
+} and call_callable (callable: value) (name: string) (args: list value) (env: env_table) => {
+  let (arg_names, body) = switch callable {
+    | CallableVal names body => (names, body)
+    | _ => failwith @@ "expected callable, got " ^ format_val callable
+  };
+
+  let fn_env = Hashtbl.copy env;
+
+  try (
+    List.iter2 (fun name arg => {
+      Hashtbl.add fn_env name arg;
+    }) arg_names args
+  ) {
+    | Invalid_argument "List.iter2" =>  {
+      let expected_arity = List.length arg_names;
+      let actual_arity = List.length args;
+
+      failwith ("called function " ^ name ^ " with " ^ (string_of_int actual_arity)
+       ^ " argument(s), expected " ^ (string_of_int expected_arity) ^ " argument(s)");
+    }
+  };
+
+  eval body fn_env;
 };
 
 let read_eval_print program env => {
