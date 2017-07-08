@@ -185,6 +185,9 @@ let rec eval value env => {
       }
     };
     | NumberVal _ => value
+    | ListVal [SymbolVal "if", test, conseq, alt] => {
+      is_truthy (eval test env) ? eval conseq env : eval alt env;
+    }
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
       Hashtbl.add env name (eval value env);
       sym_false;
