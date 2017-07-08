@@ -17,7 +17,6 @@ let print_tokens_list list =>
   print_endline (String.concat " " list);
 
 type value =
-  | NothingVal
   | NumberVal float
   | SymbolVal string
   | ListVal (list value)
@@ -41,7 +40,6 @@ let rec format_val = fun value: string => {
    }
    | NumberVal x => Printf.sprintf "%.12g" x
    | SymbolVal x => x
-   | NothingVal => ""
    | CallableVal args_names body_value => {
      let formatted_args = (String.concat " " args_names);
      "(lambda " ^ formatted_args ^ " " ^ (format_val body_value) ^ ")"
@@ -113,6 +111,9 @@ let apply_arithmetic func (args: list value) :value => {
   NumberVal result;
 };
 
+let sym_false = SymbolVal "#f";
+
+/* constants */
 let pi = acos (-1.0);
 
 type env_table = Hashtbl.t string value;
@@ -132,13 +133,13 @@ let rec eval value env => {
     | NumberVal _ => value
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
       Hashtbl.add env name (eval value env);
-      NothingVal;
+      sym_false;
     }
     | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
     | ListVal [SymbolVal "begin", ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
       switch (List.rev evaluated_args) {
-        | [] => NothingVal
+        | [] => failwith "invalid usage of 'begin'"
         | [head, ...rest] => head
       };
     }
@@ -177,15 +178,11 @@ let rec eval value env => {
   };
 };
 
-
 let read_eval_print program env => {
-  let result = parse program
-    |> (fun program_value => eval program_value env);
-
-  print_string "=> ";
-  result
-    |> format_val
-    |> print_endline;
+  let program_value = parse program;
+  let result = eval program_value env;
+  let result_formatted = format_val result;
+  print_endline ("=> " ^ result_formatted);
 };
 
 let read_eval_print_loop env => {
@@ -195,7 +192,7 @@ let read_eval_print_loop env => {
     try (
       read_eval_print (String.trim input) env
     ) {
-      | Failure message => print_endline @@ "Error: " ^ message;
+      | Failure message => print_endline ("error: " ^ message);
     };
   }
 };
