@@ -217,9 +217,33 @@ let rec eval value env => {
         | [head, ...rest] => head
       };
     }
+    | "car" =>
+      switch args {
+        | [ListVal [head, ...rest]] => head
+        | [ListVal []] => failwith "cannot use car on empty list"
+        | _ =>  failwith "cannot use car on non-list value"
+      }
+    | "cadr" => ListVal (
+      switch args {
+        | [ListVal [head, ...rest]] => rest
+        | [ListVal []] => failwith "cannot use cadr on empty list"
+        | _ =>  failwith "cannot use cadr on non-list value"
+      })
+    | "cons" => ListVal (
+      switch args {
+        | [new_val, ListVal existing_list] => List.cons new_val existing_list
+        | _ =>  failwith "invalid use of 'cons'"
+      })
     | "eq?" => are_referentially_equal args
     | "equal?" => are_structurally_equal args
     | "length" => list_length args
+    | "list?" => {
+      sym_of_bool (switch args {
+        | [ListVal list_value] => true
+        | [head] => false
+        | _ => failwith "invalid use of 'list?'"
+      })
+    }
     | name => {
         let proc = try (Hashtbl.find env name) {
           | Not_found => failwith @@ "attempted to call undefined function: " ^ name
