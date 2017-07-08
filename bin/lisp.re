@@ -42,7 +42,10 @@ let rec format_val = fun value: string => {
    | NumberVal x => Printf.sprintf "%.12g" x
    | SymbolVal x => x
    | NothingVal => ""
-   | CallableVal _ _ => "[callable]"
+   | CallableVal args_names body_value => {
+     let formatted_args = (String.concat " " args_names);
+     "(lambda " ^ formatted_args ^ " " ^ (format_val body_value) ^ ")"
+   }
   }
 };
 
