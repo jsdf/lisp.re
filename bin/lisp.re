@@ -188,13 +188,6 @@ let rec eval value env => {
       sym_false;
     }
     | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
-    | ListVal [SymbolVal "begin", ...args] => {
-      let evaluated_args = List.map (fun arg => eval arg env) args;
-      switch (List.rev evaluated_args) {
-        | [] => failwith "invalid usage of 'begin'"
-        | [head, ...rest] => head
-      };
-    }
     | ListVal [SymbolVal "lambda", ListVal args_names, body_value] => {
       CallableVal (List.map unwrap_symbol_value args_names) body_value;
     }
@@ -218,6 +211,12 @@ let rec eval value env => {
     | "<=" => apply_number_comparator (<=) args
     | ">=" => apply_number_comparator (>=) args
     | "=" => are_structurally_equal args
+    | "begin" => {
+      switch (List.rev args) {
+        | [] => failwith "invalid usage of 'begin'"
+        | [head, ...rest] => head
+      };
+    }
     | "eq?" => are_referentially_equal args
     | "equal?" => are_structurally_equal args
     | "length" => list_length args
