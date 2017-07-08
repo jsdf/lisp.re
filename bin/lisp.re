@@ -113,6 +113,44 @@ let apply_arithmetic func (args: list value) :value => {
 
 let sym_false = SymbolVal "#f";
 
+let is_truthy (value: value) => {
+  not (switch value {
+    | SymbolVal "#f" => true
+    | _  => false
+  });
+};
+
+let sym_of_bool b =>
+  switch b {
+    | true => SymbolVal "#t"
+    | false  => SymbolVal "#f"
+  };
+
+let apply_number_comparator (func: 'a => 'a => bool) (args: list value) :value => {
+  switch args {
+    | [NumberVal a, NumberVal b] => sym_of_bool (func a b)
+    | _ => failwith "expected 2 args of number type"
+  };
+};
+
+let are_referentially_equal (args: list value) :value => {
+  sym_of_bool (switch args {
+    | [NumberVal a, NumberVal b] => a == b
+    | [SymbolVal a, SymbolVal b] => a == b
+    | [CallableVal a_args a_body, CallableVal b_args b_body] => a_args == b_args && a_body == b_body
+    | _ => failwith "expected 2 args of same type"
+  });
+};
+
+let are_structurally_equal (args: list value) :value => {
+  sym_of_bool (switch args {
+    | [NumberVal a, NumberVal b] => a === b
+    | [SymbolVal a, SymbolVal b] => a === b
+    | [CallableVal a_args a_body, CallableVal b_args b_body] => a_args === b_args && a_body === b_body
+    | _ => failwith "expected 2 args of same type"
+  });
+};
+
 /* constants */
 let pi = acos (-1.0);
 
@@ -159,6 +197,13 @@ let rec eval value env => {
     | "-" => apply_arithmetic (-.) args
     | "*" => apply_arithmetic (*.) args
     | "/" => apply_arithmetic (/.) args
+    | "<" => apply_number_comparator (<) args
+    | ">" => apply_number_comparator (>) args
+    | "<=" => apply_number_comparator (<=) args
+    | ">=" => apply_number_comparator (>=) args
+    | "=" => are_structurally_equal args
+    | "eq?" => are_referentially_equal args
+    | "equal?" => are_structurally_equal args
     | name => {
         let proc = try (Hashtbl.find env name) {
           | Not_found => failwith @@ "attempted to call undefined function: " ^ name
