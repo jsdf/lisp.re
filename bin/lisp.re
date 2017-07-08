@@ -118,7 +118,10 @@ let apply_arithmetic func (args: list value) :value => {
   NumberVal result;
 };
 
+/* constants */
+let sym_true = SymbolVal "#t";
 let sym_false = SymbolVal "#f";
+let pi = acos (-1.0);
 
 let is_truthy (value: value) => {
   not (switch value {
@@ -165,13 +168,12 @@ let list_length (args: list value) => {
   }));
 };
 
-/* constants */
-let pi = acos (-1.0);
-
 type env_table = Hashtbl.t string value;
 let standard_env () => {
   let env: env_table = Hashtbl.create 1000;
   Hashtbl.add env "pi" (NumberVal pi);
+  Hashtbl.add env "#f" sym_false;
+  Hashtbl.add env "#t" sym_true;
   env;
 };
 
@@ -211,6 +213,11 @@ let rec eval value env => {
     | "<=" => apply_number_comparator (<=) args
     | ">=" => apply_number_comparator (>=) args
     | "=" => are_structurally_equal args
+    | "abs" =>
+      switch args {
+        | [NumberVal x] => NumberVal (abs_float x)
+        | _ => failwith "invalid usage of 'abs'"
+      }
     | "apply" =>
       switch args {
         | [maybe_callable, ...callable_args] => {
@@ -264,6 +271,42 @@ let rec eval value env => {
         }
         | _ => failwith "invalid usage of 'map'"
       }
+      | "max" => apply_arithmetic max args
+      | "min" => apply_arithmetic min args
+      | "not" =>
+        switch args {
+          | [operand] => sym_of_bool (not (is_truthy operand))
+          | _ => failwith "invalid usage of 'not'"
+        }
+      | "null?" =>
+        sym_of_bool (switch args {
+          | [ListVal []] => true
+          | [_] => false
+          | _ => failwith "invalid usage of 'null?'"
+        })
+      | "number?" =>
+        sym_of_bool (switch args {
+          | [NumberVal _] => true
+          | [_] => false
+          | _ => failwith "invalid usage of 'number?'"
+        })
+      | "procedure?" =>
+        sym_of_bool (switch args {
+          | [CallableVal _] => true
+          | [_] => false
+          | _ => failwith "invalid usage of 'procedure?'"
+        })
+      | "round" =>
+        switch args {
+          | [NumberVal x] => NumberVal (floor x)
+          | _ => failwith "invalid usage of 'round'"
+        }
+      | "symbol?" =>
+        sym_of_bool (switch args {
+          | [SymbolVal _] => true
+          | [_] => false
+          | _ => failwith "invalid usage of 'symbol?'"
+        })
     | name => {
       let callable = try (Hashtbl.find env name) {
         | Not_found => failwith @@ "attempted to call undefined function: " ^ name
