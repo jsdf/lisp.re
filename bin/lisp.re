@@ -247,6 +247,7 @@ let rec eval value env => {
     | "eq?" => are_referentially_equal args
     | "equal?" => are_structurally_equal args
     | "length" => list_length args
+    | "list" => ListVal args
     | "list?" => {
       sym_of_bool (switch args {
         | [ListVal list_value] => true
