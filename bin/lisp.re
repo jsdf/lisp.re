@@ -215,7 +215,7 @@ let rec eval value env => {
       switch args {
         | [maybe_callable, ...callable_args] => {
           switch maybe_callable {
-            | CallableVal _ _ => call_callable  maybe_callable "[lambda]" callable_args env
+            | CallableVal _ _ => call_callable maybe_callable "[lambda]" callable_args env
             | _ => failwith "cannot use 'apply' with non-callable first argument"
           }
         }
@@ -254,6 +254,15 @@ let rec eval value env => {
         | _ => failwith "invalid use of 'list?'"
       })
     }
+    | "map" =>
+      switch args {
+        | [maybe_callable, ListVal list_to_map] => {
+          ListVal (List.map (fun v => {
+            call_callable maybe_callable "[lambda]" [v] env
+          }) list_to_map);
+        }
+        | _ => failwith "invalid usage of 'map'"
+      }
     | name => {
       let callable = try (Hashtbl.find env name) {
         | Not_found => failwith @@ "attempted to call undefined function: " ^ name
