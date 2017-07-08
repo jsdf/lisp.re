@@ -105,6 +105,13 @@ let unwrap_symbol_value (value: value) :string => {
   };
 };
 
+let unwrap_list_value (value: value) :list value => {
+  switch value {
+    | ListVal x => x
+    | _ => failwith "expected list value"
+  };
+};
+
 let apply_arithmetic func (args: list value) :value => {
   let numbers = (List.map unwrap_number_value args);
   let result = (List.fold_left func (List.hd numbers) (List.tl numbers));
@@ -151,6 +158,13 @@ let are_structurally_equal (args: list value) :value => {
   });
 };
 
+let list_length (args: list value) => {
+  NumberVal (float_of_int (switch args {
+    | [l] => List.length (unwrap_list_value l)
+    | _ => failwith "expected single argument"
+  }));
+};
+
 /* constants */
 let pi = acos (-1.0);
 
@@ -185,6 +199,8 @@ let rec eval value env => {
       CallableVal (List.map unwrap_symbol_value args_names) body_value;
     }
     | ListVal [SymbolVal "lambda", ...args] => failwith "invalid usage of 'lambda'"
+    | ListVal [SymbolVal "quote", value_to_quote] => value_to_quote
+    | ListVal [SymbolVal "quote", ...args] => failwith "invalid usage of 'quote'"
     | ListVal [SymbolVal sym_to_call, ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
       call_proc sym_to_call evaluated_args env;
@@ -204,6 +220,7 @@ let rec eval value env => {
     | "=" => are_structurally_equal args
     | "eq?" => are_referentially_equal args
     | "equal?" => are_structurally_equal args
+    | "length" => list_length args
     | name => {
         let proc = try (Hashtbl.find env name) {
           | Not_found => failwith @@ "attempted to call undefined function: " ^ name
