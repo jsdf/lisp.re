@@ -1,5 +1,7 @@
 open Containers;
 
+let debug = true;
+
 /* Convert a string of characters into a list of tokens. */
 let tokenize input: list string => {
   let tokens = String.(
@@ -16,11 +18,14 @@ let tokenize input: list string => {
 let print_tokens_list list =>
   print_endline (String.concat " " list);
 
-type value =
+type env = {
+  table: Hashtbl.t string value,
+  outer: option env,
+} and value =
   | NumberVal float
   | SymbolVal string
   | ListVal (list value)
-  | CallableVal (list string) value;
+  | CallableVal (list string) value env;
 
 /* Numbers become numbers; every other token is a symbol. */
 let atom token: value => {
@@ -40,7 +45,7 @@ let rec format_val = fun value: string => {
    }
    | NumberVal x => Printf.sprintf "%.12g" x
    | SymbolVal x => x
-   | CallableVal args_names body_value => {
+   | CallableVal args_names body_value _env => {
      let formatted_args = (String.concat " " args_names);
      "(lambda " ^ formatted_args ^ " " ^ (format_val body_value) ^ ")"
    }
@@ -126,6 +131,7 @@ let pi = acos (-1.0);
 let is_truthy (value: value) => {
   not (switch value {
     | SymbolVal "#f" => true
+    | ListVal [] => true
     | _  => false
   });
 };
@@ -147,7 +153,8 @@ let are_referentially_equal (args: list value) :value => {
   sym_of_bool (switch args {
     | [NumberVal a, NumberVal b] => a == b
     | [SymbolVal a, SymbolVal b] => a == b
-    | [CallableVal a_args a_body, CallableVal b_args b_body] => a_args == b_args && a_body == b_body
+    | [CallableVal a_args a_body a_env, CallableVal b_args b_body b_env] =>
+      a_args == b_args && a_body == b_body && a_env == b_env
     | _ => failwith "expected 2 args of same type"
   });
 };
@@ -156,7 +163,8 @@ let are_structurally_equal (args: list value) :value => {
   sym_of_bool (switch args {
     | [NumberVal a, NumberVal b] => a === b
     | [SymbolVal a, SymbolVal b] => a === b
-    | [CallableVal a_args a_body, CallableVal b_args b_body] => a_args === b_args && a_body === b_body
+    | [CallableVal a_args a_body a_env, CallableVal b_args b_body b_env] =>
+      a_args === b_args && a_body === b_body && a_env === b_env
     | _ => failwith "expected 2 args of same type"
   });
 };
@@ -168,44 +176,109 @@ let list_length (args: list value) => {
   }));
 };
 
-type env_table = Hashtbl.t string value;
+let set_in_env env key value => {
+  Hashtbl.add env.table key value;
+};
+
+let rec find_env_with_key (env: env) key => {
+  switch (Hashtbl.mem env.table key) {
+    | true => Some env
+    | false =>
+      switch (env.outer) {
+        | None => None
+        | Some outer => find_env_with_key outer key
+      }
+  };
+};
+
+let update_existing_in_env env key value => {
+  switch (find_env_with_key env key) {
+    | Some found_env => {
+      set_in_env found_env key value;
+      true;
+    }
+    | None => false;
+  }
+};
+
+let get_in_env env key => Hashtbl.find env.table key;
+
+let create_env outer :env => {
+  {
+    table: Hashtbl.create 100,
+    outer: outer,
+  };
+};
+
 let standard_env () => {
-  let env: env_table = Hashtbl.create 1000;
-  Hashtbl.add env "pi" (NumberVal pi);
-  Hashtbl.add env "#f" sym_false;
-  Hashtbl.add env "#t" sym_true;
+  let env = create_env None;
+  set_in_env env "pi" (NumberVal pi);
+  set_in_env env "#f" sym_false;
+  set_in_env env "#t" sym_true;
   env;
 };
 
-let rec eval value env => {
+let rec dump_env (maybe_env: option env) => {
+  switch maybe_env {
+    | None => ()
+    | Some env => {
+      print_endline "Env {";
+      Hashtbl.iter (fun k v => print_endline @@ "  " ^ k ^ ": " ^ (format_val v)) env.table;
+      print_endline "}";
+      dump_env env.outer;
+    }
+  };
+};
+
+let rec eval value (env: env) => {
   switch value {
     | SymbolVal name => {
-      try (Hashtbl.find env name) {
-        | Not_found => failwith @@ "attempted to access undefined variable: " ^ name
+      switch (find_env_with_key env name) {
+        | Some env_with_key => get_in_env env_with_key name
+        | None => failwith @@ "attempted to access undefined variable: " ^ name
       }
     };
     | NumberVal _ => value
     | ListVal [SymbolVal "if", test, conseq, alt] => {
-      is_truthy (eval test env) ? eval conseq env : eval alt env;
+      if debug { print_endline @@ "if " ^ (format_val test) ^ (format_val conseq) ^ (format_val alt) };
+      let cond_evaluated = eval test env;
+      if debug { print_endline @@ "if condition evals to " ^ (format_val cond_evaluated)};
+      is_truthy (cond_evaluated) ? eval conseq env : eval alt env;
     }
+    | ListVal [SymbolVal "if", ...args] => failwith @@ "invalid usage of 'if'"
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
-      Hashtbl.add env name (eval value env);
+      set_in_env env name (eval value env);
       sym_false;
     }
     | ListVal [SymbolVal "define", ...args] => failwith "invalid usage of 'define'"
     | ListVal [SymbolVal "lambda", ListVal args_names, body_value] => {
-      CallableVal (List.map unwrap_symbol_value args_names) body_value;
+      CallableVal (List.map unwrap_symbol_value args_names) body_value (create_env (Some env));
     }
     | ListVal [SymbolVal "lambda", ...args] => failwith "invalid usage of 'lambda'"
     | ListVal [SymbolVal "quote", value_to_quote] => value_to_quote
     | ListVal [SymbolVal "quote", ...args] => failwith "invalid usage of 'quote'"
+    | ListVal [SymbolVal "set!", SymbolVal name, value] => {
+      switch (update_existing_in_env env name (eval value env)) {
+        | true => ()
+        | false => {
+          failwith "attempted to 'set!' undefined variable"
+        }
+      };
+      sym_false;
+    }
     | ListVal [SymbolVal name_to_call, ...args] => {
       let evaluated_args = List.map (fun arg => eval arg env) args;
       call_by_name name_to_call evaluated_args env;
     }
+    | ListVal [expr_to_call, ...args] => {
+      let evaluated_expr_to_call = eval expr_to_call env;
+      let evaluated_args = List.map (fun arg => eval arg env) args;
+      call_callable evaluated_expr_to_call "[dynamic]" evaluated_args;
+    }
     | _ => failwith "unknown list form"
   };
-} and call_by_name (name: string) (args: list value) (env: env_table) => {
+} and call_by_name (name: string) (args: list value) (env: env) => {
+  if debug { print_endline @@ "call_by_name " ^ name ^ (format_val (ListVal args))};
   switch (name) {
     | "+" => apply_arithmetic (+.) args
     | "-" => apply_arithmetic (-.) args
@@ -225,7 +298,7 @@ let rec eval value env => {
       switch args {
         | [maybe_callable, ...callable_args] => {
           switch maybe_callable {
-            | CallableVal _ _ => call_callable maybe_callable "[lambda]" callable_args env
+            | CallableVal _ _ _ => call_callable maybe_callable "[lambda]" callable_args
             | _ => failwith "cannot use 'apply' with non-callable first argument"
           }
         }
@@ -243,7 +316,7 @@ let rec eval value env => {
         | [ListVal []] => failwith "cannot use car on empty list"
         | _ =>  failwith "cannot use car on non-list value"
       }
-    | "cadr" => ListVal (
+    | "cdr" => ListVal (
       switch args {
         | [ListVal [head, ...rest]] => rest
         | [ListVal []] => failwith "cannot use cadr on empty list"
@@ -269,65 +342,69 @@ let rec eval value env => {
       switch args {
         | [maybe_callable, ListVal list_to_map] => {
           ListVal (List.map (fun v => {
-            call_callable maybe_callable "[lambda]" [v] env
+            call_callable maybe_callable "[lambda]" [v]
           }) list_to_map);
         }
         | _ => failwith "invalid usage of 'map'"
       }
-      | "max" => apply_arithmetic max args
-      | "min" => apply_arithmetic min args
-      | "not" =>
-        switch args {
-          | [operand] => sym_of_bool (not (is_truthy operand))
-          | _ => failwith "invalid usage of 'not'"
-        }
-      | "null?" =>
-        sym_of_bool (switch args {
-          | [ListVal []] => true
-          | [_] => false
-          | _ => failwith "invalid usage of 'null?'"
-        })
-      | "number?" =>
-        sym_of_bool (switch args {
-          | [NumberVal _] => true
-          | [_] => false
-          | _ => failwith "invalid usage of 'number?'"
-        })
-      | "procedure?" =>
-        sym_of_bool (switch args {
-          | [CallableVal _] => true
-          | [_] => false
-          | _ => failwith "invalid usage of 'procedure?'"
-        })
-      | "round" =>
-        switch args {
-          | [NumberVal x] => NumberVal (floor x)
-          | _ => failwith "invalid usage of 'round'"
-        }
-      | "symbol?" =>
-        sym_of_bool (switch args {
-          | [SymbolVal _] => true
-          | [_] => false
-          | _ => failwith "invalid usage of 'symbol?'"
-        })
+    | "max" => apply_arithmetic max args
+    | "min" => apply_arithmetic min args
+    | "not" =>
+      switch args {
+        | [operand] => sym_of_bool (not (is_truthy operand))
+        | _ => failwith "invalid usage of 'not'"
+      }
+    | "null?" =>
+      sym_of_bool (switch args {
+        | [ListVal []] => true
+        | [_] => false
+        | _ => failwith "invalid usage of 'null?'"
+      })
+    | "number?" =>
+      sym_of_bool (switch args {
+        | [NumberVal _] => true
+        | [_] => false
+        | _ => failwith "invalid usage of 'number?'"
+      })
+    | "procedure?" =>
+      sym_of_bool (switch args {
+        | [CallableVal _] => true
+        | [_] => false
+        | _ => failwith "invalid usage of 'procedure?'"
+      })
+    | "round" =>
+      switch args {
+        | [NumberVal x] => NumberVal (floor x)
+        | _ => failwith "invalid usage of 'round'"
+      }
+    | "symbol?" =>
+      sym_of_bool (switch args {
+        | [SymbolVal _] => true
+        | [_] => false
+        | _ => failwith "invalid usage of 'symbol?'"
+      })
     | name => {
-      let callable = try (Hashtbl.find env name) {
-        | Not_found => failwith @@ "attempted to call undefined function: " ^ name
+      switch (find_env_with_key env name) {
+        | Some found => call_callable (get_in_env found name) name args;
+        | None => {
+          if debug { print_endline "dumping env"; dump_env (Some env) };
+          failwith @@ "attempted to call undefined function: " ^ name;
+        }
       };
-      call_callable callable name args env;
     }
   };
-} and call_callable (callable: value) (name: string) (args: list value) (env: env_table) => {
-  let (arg_names, body) = switch callable {
-    | CallableVal names body => (names, body)
+} and call_callable (callable: value) (name: string) (args: list value) :value => {
+  let (arg_names, body, env) = switch callable {
+    | CallableVal names body env => (names, body, env)
     | _ => failwith @@ "expected callable, got " ^ format_val callable
   };
 
-  let fn_env = Hashtbl.copy env;
+  let fn_env = create_env (Some env);
 
+  if debug { print_endline @@ "call_callable " ^ name ^ (format_val (ListVal args)) };
   try (
     List.iter2 (fun name arg => {
-      Hashtbl.add fn_env name arg;
+      set_in_env fn_env name arg;
     }) arg_names args
   ) {
     | Invalid_argument "List.iter2" =>  {
@@ -339,10 +416,12 @@ let rec eval value env => {
     }
   };
 
-  eval body fn_env;
+  let retval = eval body fn_env;
+  if debug { print_string @@ "returning from " ^ name ^ " with " ^ (format_val retval) ^ "\n" };
+  retval;
 };
 
-let read_eval_print program env => {
+let read_eval_print program (env: env) => {
   let program_value = parse program;
   let result = eval program_value env;
   let result_formatted = format_val result;
@@ -364,24 +443,54 @@ let read_eval_print_loop env => {
 let test_env = standard_env ();
 
 print_endline "test stuff";
-read_eval_print "(+ 1 2 (* 3 4))" test_env;
-read_eval_print "(+ (* 3 4) 2)" test_env;
-read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))" test_env;
+let test_expr expr => {
+  let t = Sys.time ();
+  print_endline @@ "test> " ^ expr;
+  read_eval_print expr test_env;
+  Printf.printf "took: %fs\n" (Sys.time () -. t);
+};
+
+test_expr "(+ 1 2 (* 3 4))";
+test_expr "(+ (* 3 4) 2)";
+test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
+
+test_expr "(define circle-area (lambda (r) (* pi (* r r))))";
+test_expr "(circle-area 3)";
+test_expr "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))";
+test_expr "(fact 10)";
+test_expr "(fact 100)";
+test_expr "(circle-area (fact 10))";
+test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (car L)) 1 0) (count item (cdr L))) 0)))";
+test_expr "(count 0 (list 0 1 2 3 0 0))";
+test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
+test_expr "(define twice (lambda (x) (* 2 x)))";
+test_expr "(twice 5)";
+test_expr "(define repeat (lambda (f) (lambda (x) (f (f x)))))";
+test_expr "((repeat twice) 10)";
+test_expr "((repeat (repeat twice)) 10)";
+test_expr "((repeat (repeat (repeat twice))) 10)";
+test_expr "((repeat (repeat (repeat (repeat twice)))) 10)";
+test_expr "(pow 2 16)";
+test_expr "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))";
+test_expr "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))";
+test_expr "(range 0 10)";
+test_expr "(map fib (range 0 10))";
+test_expr "(map fib (range 0 20))";
 
 print_endline "test begin";
 let begin_test = "(begin
     (define r 10)
     (* pi (* r r)))";
-read_eval_print begin_test test_env;
+test_expr begin_test;
 
 print_endline "test lambda";
 let lambda_test = "(begin
     (define  sq (lambda (x) (* x x)))
     (sq 2))";
-read_eval_print lambda_test test_env;
+test_expr lambda_test;
 
 print_endline "test invalid expression";
-try (read_eval_print "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)" test_env) {
+try (test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
   | Failure "unexpected EOF while reading list" => print_endline "ok";
   | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
 };
