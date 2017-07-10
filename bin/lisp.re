@@ -26,7 +26,8 @@ type env = {
   | NumberVal float
   | SymbolVal string
   | ListVal (list value)
-  | CallableVal (list string) value env;
+  | CallableVal (list string) value env
+  | BuiltinCallableVal string (list value => value) env;
 
 /* Numbers become numbers; every other token is a symbol. */
 let atom token: value => {
@@ -48,7 +49,10 @@ let rec format_val = fun value: string => {
    | SymbolVal x => x
    | CallableVal args_names body_value _env => {
      let formatted_args = (String.concat " " args_names);
-     "(lambda " ^ formatted_args ^ " " ^ (format_val body_value) ^ ")"
+     "(lambda (" ^ formatted_args ^ ") " ^ (format_val body_value) ^ ")";
+   }
+   | BuiltinCallableVal name _func _env => {
+     "#<procedure " ^ name ^ ">"
    }
   }
 };
@@ -127,7 +131,7 @@ let apply_arithmetic func (args: list value) :value => {
 /* constants */
 let sym_true = SymbolVal "#t";
 let sym_false = SymbolVal "#f";
-let pi = acos (-1.0);
+let pi = NumberVal (acos (-1.0));
 
 let is_truthy (value: value) => {
   not (switch value {
@@ -212,14 +216,6 @@ let create_env outer :env => {
   };
 };
 
-let standard_env () => {
-  let env = create_env None;
-  set_in_env env "pi" (NumberVal pi);
-  set_in_env env "#f" sym_false;
-  set_in_env env "#t" sym_true;
-  env;
-};
-
 let rec dump_env (maybe_env: option env) => {
   switch maybe_env {
     | None => ()
@@ -294,151 +290,164 @@ let rec eval value (env: env) => {
   evaluated;
 } and call_by_name (name: string) (args: list value) (env: env) => {
   if debug { print_endline @@ "call_by_name " ^ name ^ (format_val (ListVal args))};
-  switch (name) {
-    | "+" => apply_arithmetic (+.) args
-    | "-" => apply_arithmetic (-.) args
-    | "*" => apply_arithmetic (*.) args
-    | "/" => apply_arithmetic (/.) args
-    | "<" => apply_number_comparator (<) args
-    | ">" => apply_number_comparator (>) args
-    | "<=" => apply_number_comparator (<=) args
-    | ">=" => apply_number_comparator (>=) args
-    | "=" => are_structurally_equal args
-    | "abs" =>
-      switch args {
-        | [NumberVal x] => NumberVal (abs_float x)
-        | _ => failwith "invalid usage of 'abs'"
-      }
-    | "apply" =>
-      switch args {
-        | [maybe_callable, ...callable_args] => {
-          switch maybe_callable {
-            | CallableVal _ _ _ => call_callable maybe_callable "[lambda]" callable_args
-            | _ => failwith "cannot use 'apply' with non-callable first argument"
-          }
-        }
-        | _ => failwith "invalid usage of 'apply'"
-      }
-    | "begin" => {
-      switch (List.rev args) {
-        | [] => failwith "invalid usage of 'begin'"
-        | [head, ...rest] => head
-      };
-    }
-    | "car" =>
-      switch args {
-        | [ListVal [head, ...rest]] => head
-        | [ListVal []] => failwith "cannot use car on empty list"
-        | _ =>  failwith "cannot use car on non-list value"
-      }
-    | "cdr" => ListVal (
-      switch args {
-        | [ListVal [head, ...rest]] => rest
-        | [ListVal []] => failwith "cannot use cadr on empty list"
-        | _ =>  failwith "cannot use cadr on non-list value"
-      })
-    | "cons" => ListVal (
-      switch args {
-        | [new_val, ListVal existing_list] => List.cons new_val existing_list
-        | _ =>  failwith "invalid use of 'cons'"
-      })
-    | "eq?" => are_referentially_equal args
-    | "equal?" => are_structurally_equal args
-    | "length" => list_length args
-    | "list" => ListVal args
-    | "list?" => {
-      sym_of_bool (switch args {
-        | [ListVal list_value] => true
-        | [head] => false
-        | _ => failwith "invalid use of 'list?'"
-      })
-    }
-    | "map" =>
-      switch args {
-        | [maybe_callable, ListVal list_to_map] => {
-          ListVal (List.map (fun v => {
-            call_callable maybe_callable "[lambda]" [v]
-          }) list_to_map);
-        }
-        | _ => failwith "invalid usage of 'map'"
-      }
-    | "max" => apply_arithmetic max args
-    | "min" => apply_arithmetic min args
-    | "not" =>
-      switch args {
-        | [operand] => sym_of_bool (not (is_truthy operand))
-        | _ => failwith "invalid usage of 'not'"
-      }
-    | "null?" =>
-      sym_of_bool (switch args {
-        | [ListVal []] => true
-        | [_] => false
-        | _ => failwith "invalid usage of 'null?'"
-      })
-    | "number?" =>
-      sym_of_bool (switch args {
-        | [NumberVal _] => true
-        | [_] => false
-        | _ => failwith "invalid usage of 'number?'"
-      })
-    | "pow" =>
-      switch args {
-        | [NumberVal base, NumberVal exponent] => NumberVal (base ** exponent);
-        | _ => failwith "invalid usage of 'pow'"
-      }
-    | "procedure?" =>
-      sym_of_bool (switch args {
-        | [CallableVal _] => true
-        | [_] => false
-        | _ => failwith "invalid usage of 'procedure?'"
-      })
-    | "round" =>
-      switch args {
-        | [NumberVal x] => NumberVal (floor x)
-        | _ => failwith "invalid usage of 'round'"
-      }
-    | "symbol?" =>
-      sym_of_bool (switch args {
-        | [SymbolVal _] => true
-        | [_] => false
-        | _ => failwith "invalid usage of 'symbol?'"
-      })
-    | name => {
-      switch (find_env_with_key env name) {
-        | Some found => call_callable (get_in_env found name) name args;
-        | None => {
-          if debug { print_endline "dumping env"; dump_env (Some env) };
-          failwith @@ "attempted to call undefined function: " ^ name;
-        }
-      };
+
+  switch (find_env_with_key env name) {
+    | Some found => call_callable (get_in_env found name) name args;
+    | None => {
+      if debug { print_endline "dumping env"; dump_env (Some env) };
+      failwith @@ "attempted to call undefined function: " ^ name;
     }
   };
-} and call_callable (callable: value) (name: string) (args: list value) :value => {
-  let (arg_names, body, env) = switch callable {
-    | CallableVal names body env => (names, body, env)
-    | _ => failwith @@ "expected callable, got " ^ format_val callable
-  };
-
-  let fn_env = create_env (Some env);
-
+} and call_callable (maybe_callable: value) (name: string) (args: list value) :value => {
   if debug { print_endline @@ "call_callable " ^ name ^ (format_val (ListVal args)) };
-  try (
-    List.iter2 (fun name arg => {
-      set_in_env fn_env name arg;
-    }) arg_names args
-  ) {
-    | Invalid_argument "List.iter2" =>  {
-      let expected_arity = List.length arg_names;
-      let actual_arity = List.length args;
 
-      failwith ("called function " ^ name ^ " with " ^ (string_of_int actual_arity)
-       ^ " argument(s), expected " ^ (string_of_int expected_arity) ^ " argument(s)");
+  let retval = switch maybe_callable {
+    | BuiltinCallableVal name func env => func args
+    | CallableVal arg_names body env => {
+        let fn_env = create_env (Some env);
+        try (
+          List.iter2 (fun name arg => {
+            set_in_env fn_env name arg;
+          }) arg_names args
+        ) {
+          | Invalid_argument "List.iter2" =>  {
+            let expected_arity = List.length arg_names;
+            let actual_arity = List.length args;
+
+            failwith ("called function " ^ name ^ " with " ^ (string_of_int actual_arity)
+             ^ " argument(s), expected " ^ (string_of_int expected_arity) ^ " argument(s)");
+          }
+        };
+        eval body fn_env;
     }
+    | _ => failwith @@ "expected callable, got " ^ format_val maybe_callable
   };
 
-  let retval = eval body fn_env;
   if debug { print_string @@ "returning from " ^ name ^ " with " ^ (format_val retval) ^ "\n" };
   retval;
+};
+
+let standard_env () => {
+  let env = create_env None;
+
+  set_in_env env "pi" pi;
+  set_in_env env "#f" sym_false;
+  set_in_env env "#t" sym_true;
+
+  let define_builtin name func =>
+    set_in_env env name (BuiltinCallableVal name func env);
+
+  define_builtin "+" @@ fun args => apply_arithmetic (+.) args;
+  define_builtin "-" @@ fun args => apply_arithmetic (-.) args;
+  define_builtin "*" @@ fun args => apply_arithmetic (*.) args;
+  define_builtin "/" @@ fun args => apply_arithmetic (/.) args;
+  define_builtin "<" @@ fun args => apply_number_comparator (<) args;
+  define_builtin ">" @@ fun args => apply_number_comparator (>) args;
+  define_builtin "<=" @@ fun args => apply_number_comparator (<=) args;
+  define_builtin ">=" @@ fun args => apply_number_comparator (>=) args;
+  define_builtin "=" @@ fun args => are_structurally_equal args;
+  define_builtin "abs" @@ fun args =>
+    switch args {
+      | [NumberVal x] => NumberVal (abs_float x)
+      | _ => failwith "invalid usage of 'abs'"
+    };
+  define_builtin "apply" @@ fun args =>
+    switch args {
+      | [maybe_callable, ...callable_args] => {
+        switch maybe_callable {
+          | CallableVal _ => call_callable maybe_callable "[lambda]" callable_args
+          | _ => failwith "cannot use 'apply' with non-callable first argument"
+        }
+      }
+      | _ => failwith "invalid usage of 'apply'"
+    };
+  define_builtin "begin" @@ fun args => {
+    switch (List.rev args) {
+      | [] => failwith "invalid usage of 'begin'"
+      | [head, ...rest] => head
+    };
+  };
+  define_builtin "car" @@ fun args =>
+    switch args {
+      | [ListVal [head, ...rest]] => head
+      | [ListVal []] => failwith "cannot use car on empty list"
+      | _ =>  failwith "cannot use car on non-list value"
+    };
+  define_builtin "cdr" @@ fun args => ListVal (
+    switch args {
+      | [ListVal [head, ...rest]] => rest
+      | [ListVal []] => failwith "cannot use cadr on empty list"
+      | _ =>  failwith "cannot use cadr on non-list value"
+    });
+  define_builtin "cons" @@ fun args => ListVal (
+    switch args {
+      | [new_val, ListVal existing_list] => List.cons new_val existing_list
+      | _ =>  failwith "invalid use of 'cons'"
+    });
+  define_builtin "eq?" @@ fun args => are_referentially_equal args;
+  define_builtin "equal?" @@ fun args => are_structurally_equal args;
+  define_builtin "length" @@ fun args => list_length args;
+  define_builtin "list" @@ fun args => ListVal args;
+  define_builtin "list?" @@ fun args => {
+    sym_of_bool (switch args {
+      | [ListVal list_value] => true
+      | [head] => false
+      | _ => failwith "invalid use of 'list?'"
+    })
+  };
+  define_builtin "map" @@ fun args =>
+    switch args {
+      | [maybe_callable, ListVal list_to_map] => {
+        ListVal (List.map (fun v => {
+          call_callable maybe_callable "[lambda]" [v]
+        }) list_to_map);
+      }
+      | _ => failwith "invalid usage of 'map'"
+    };
+  define_builtin "max" @@ fun args => apply_arithmetic max args;
+  define_builtin "min" @@ fun args => apply_arithmetic min args;
+  define_builtin "not" @@ fun args =>
+    switch args {
+      | [operand] => sym_of_bool (not (is_truthy operand))
+      | _ => failwith "invalid usage of 'not'"
+    };
+  define_builtin "null?" @@ fun args =>
+    sym_of_bool (switch args {
+      | [ListVal []] => true
+      | [_] => false
+      | _ => failwith "invalid usage of 'null?'"
+    });
+  define_builtin "number?" @@ fun args =>
+    sym_of_bool (switch args {
+      | [NumberVal _] => true
+      | [_] => false
+      | _ => failwith "invalid usage of 'number?'"
+    });
+  define_builtin "pow" @@ fun args =>
+    switch args {
+      | [NumberVal base, NumberVal exponent] => NumberVal (base ** exponent);
+      | _ => failwith "invalid usage of 'pow'"
+    };
+  define_builtin "procedure?" @@ fun args =>
+    sym_of_bool (switch args {
+      | [CallableVal _] => true
+      | [BuiltinCallableVal _] => true
+      | [_] => false
+      | _ => failwith "invalid usage of 'procedure?'"
+    });
+  define_builtin "round" @@ fun args =>
+    switch args {
+      | [NumberVal x] => NumberVal (floor x)
+      | _ => failwith "invalid usage of 'round'"
+    };
+  define_builtin "symbol?" @@ fun args =>
+    sym_of_bool (switch args {
+      | [SymbolVal _] => true
+      | [_] => false
+      | _ => failwith "invalid usage of 'symbol?'"
+    });
+
+  env;
 };
 
 let read_eval_print program (env: env) => {
@@ -480,7 +489,10 @@ test_expr "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))";
 test_expr "(fact 10)";
 test_expr "(fact 100)";
 test_expr "(circle-area (fact 10))";
-test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (car L)) 1 0) (count item (cdr L))) 0)))";
+test_expr "(procedure? map)";
+test_expr "(define first car)";
+test_expr "(define rest cdr)";
+test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (first L)) 1 0) (count item (rest L))) 0)))";
 test_expr "(count 0 (list 0 1 2 3 0 0))";
 test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
 test_expr "(define twice (lambda (x) (* 2 x)))";
