@@ -1,6 +1,7 @@
 open Containers;
 
-let debug = true;
+let debug = false;
+let debugger_stepping = ref false;
 
 /* Convert a string of characters into a list of tokens. */
 let tokenize input: list string => {
@@ -153,20 +154,21 @@ let are_referentially_equal (args: list value) :value => {
   sym_of_bool (switch args {
     | [NumberVal a, NumberVal b] => a == b
     | [SymbolVal a, SymbolVal b] => a == b
-    | [CallableVal a_args a_body a_env, CallableVal b_args b_body b_env] =>
-      a_args == b_args && a_body == b_body && a_env == b_env
-    | _ => failwith "expected 2 args of same type"
+    | [a, b] => a === b
+    | _ => failwith "expected 2 args"
   });
 };
 
 let are_structurally_equal (args: list value) :value => {
-  sym_of_bool (switch args {
-    | [NumberVal a, NumberVal b] => a === b
-    | [SymbolVal a, SymbolVal b] => a === b
-    | [CallableVal a_args a_body a_env, CallableVal b_args b_body b_env] =>
-      a_args === b_args && a_body === b_body && a_env === b_env
-    | _ => failwith "expected 2 args of same type"
+  let retval = sym_of_bool (switch args {
+    | [NumberVal a, NumberVal b] => a == b
+    | [SymbolVal a, SymbolVal b] => a == b
+    | [a, b] => a == b
+    | _ => failwith "expected 2 args"
   });
+
+  if debug { print_endline @@ "= " ^ (format_val (ListVal args)) ^ " ret " ^ (format_val retval) };
+  retval;
 };
 
 let list_length (args: list value) => {
@@ -231,7 +233,15 @@ let rec dump_env (maybe_env: option env) => {
 };
 
 let rec eval value (env: env) => {
-  switch value {
+  if (!debugger_stepping) {
+    print_endline @@ "eval: " ^ format_val value;
+    dump_env (Some env);
+    print_string "(debugger paused)";
+    read_line () |> ignore;
+    print_endline "";
+  };
+
+  let evaluated = switch value {
     | SymbolVal name => {
       switch (find_env_with_key env name) {
         | Some env_with_key => get_in_env env_with_key name
@@ -277,6 +287,11 @@ let rec eval value (env: env) => {
     }
     | _ => failwith "unknown list form"
   };
+
+  if (!debugger_stepping) {
+    print_endline @@ "evaluated: " ^ (format_val value) ^ " => " ^ (format_val evaluated);
+  };
+  evaluated;
 } and call_by_name (name: string) (args: list value) (env: env) => {
   if debug { print_endline @@ "call_by_name " ^ name ^ (format_val (ListVal args))};
   switch (name) {
@@ -482,19 +497,14 @@ test_expr "(range 0 10)";
 test_expr "(map fib (range 0 10))";
 test_expr "(map fib (range 0 20))";
 
-print_endline "test begin";
-let begin_test = "(begin
+test_expr "(begin
     (define r 10)
     (* pi (* r r)))";
-test_expr begin_test;
 
-print_endline "test lambda";
-let lambda_test = "(begin
+test_expr "(begin
     (define  sq (lambda (x) (* x x)))
     (sq 2))";
-test_expr lambda_test;
 
-print_endline "test invalid expression";
 try (test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
   | Failure "unexpected EOF while reading list" => print_endline "ok";
   | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
