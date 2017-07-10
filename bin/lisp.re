@@ -366,6 +366,11 @@ let rec eval value (env: env) => {
         | [_] => false
         | _ => failwith "invalid usage of 'number?'"
       })
+    | "pow" =>
+      switch args {
+        | [NumberVal base, NumberVal exponent] => NumberVal (base ** exponent);
+        | _ => failwith "invalid usage of 'pow'"
+      }
     | "procedure?" =>
       sym_of_bool (switch args {
         | [CallableVal _] => true
