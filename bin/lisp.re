@@ -337,15 +337,15 @@ let standard_env () => {
   let define_builtin name func =>
     set_in_env env name (BuiltinCallableVal name func env);
 
-  define_builtin "+" @@ fun args => apply_arithmetic (+.) args;
-  define_builtin "-" @@ fun args => apply_arithmetic (-.) args;
-  define_builtin "*" @@ fun args => apply_arithmetic (*.) args;
-  define_builtin "/" @@ fun args => apply_arithmetic (/.) args;
-  define_builtin "<" @@ fun args => apply_number_comparator (<) args;
-  define_builtin ">" @@ fun args => apply_number_comparator (>) args;
-  define_builtin "<=" @@ fun args => apply_number_comparator (<=) args;
-  define_builtin ">=" @@ fun args => apply_number_comparator (>=) args;
-  define_builtin "=" @@ fun args => are_structurally_equal args;
+  define_builtin "+" @@ apply_arithmetic (+.);
+  define_builtin "-" @@ apply_arithmetic (-.);
+  define_builtin "*" @@ apply_arithmetic (*.);
+  define_builtin "/" @@ apply_arithmetic (/.);
+  define_builtin "<" @@ apply_number_comparator (<);
+  define_builtin ">" @@ apply_number_comparator (>);
+  define_builtin "<=" @@ apply_number_comparator (<=);
+  define_builtin ">=" @@ apply_number_comparator (>=);
+  define_builtin "=" are_structurally_equal;
   define_builtin "abs" @@ fun args =>
     switch args {
       | [NumberVal x] => NumberVal (abs_float x)
@@ -384,9 +384,9 @@ let standard_env () => {
       | [new_val, ListVal existing_list] => List.cons new_val existing_list
       | _ =>  failwith "invalid use of 'cons'"
     });
-  define_builtin "eq?" @@ fun args => are_referentially_equal args;
-  define_builtin "equal?" @@ fun args => are_structurally_equal args;
-  define_builtin "length" @@ fun args => list_length args;
+  define_builtin "eq?" are_referentially_equal;
+  define_builtin "equal?" are_structurally_equal;
+  define_builtin "length" list_length;
   define_builtin "list" @@ fun args => ListVal args;
   define_builtin "list?" @@ fun args => {
     sym_of_bool (switch args {
@@ -404,8 +404,8 @@ let standard_env () => {
       }
       | _ => failwith "invalid usage of 'map'"
     };
-  define_builtin "max" @@ fun args => apply_arithmetic max args;
-  define_builtin "min" @@ fun args => apply_arithmetic min args;
+  define_builtin "max" @@ apply_arithmetic max;
+  define_builtin "min" @@ apply_arithmetic min;
   define_builtin "not" @@ fun args =>
     switch args {
       | [operand] => sym_of_bool (not (is_truthy operand))
