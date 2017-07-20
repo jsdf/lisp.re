@@ -1,16 +1,16 @@
-open Containers;
 
 let debug = false;
+let run_tests = true;
 let debugger_stepping = ref false;
 
 /* Convert a string of characters into a list of tokens. */
 let tokenize input: list string => {
-  let tokens = String.(
+  let tokens = Str.(
     input
-      |> (replace sub::"(" by::" ( " )
-      |> (replace sub::")" by::" ) ")
-      |> (replace sub::"\n" by::"")
-      |> split by::" "
+      |> global_replace (regexp "(") " ( "
+      |> global_replace (regexp ")") " ) "
+      |> global_replace (regexp "\n") ""
+      |> split (regexp " ")
   );
   /* filter out empty strings */
   List.filter (fun token => token != "") tokens;
@@ -84,8 +84,7 @@ let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
     }
     | _ => {
       let value = read_from_tokens remaining_tokens;
-      let next_values_list = (List.cons value values_list);
-      read_list_from_tokens remaining_tokens next_values_list;
+      read_list_from_tokens remaining_tokens [value, ...values_list];
     }
   };
 };
@@ -228,6 +227,15 @@ let rec dump_env (maybe_env: option env) => {
   };
 };
 
+let load_file file => {
+  let in_channel = open_in file;
+  let content_length = in_channel_length in_channel;
+  let contents = Bytes.create content_length;
+  really_input in_channel contents 0 content_length;
+  close_in in_channel;
+  contents;
+};
+
 let rec eval value (env: env) => {
   if (!debugger_stepping) {
     print_endline @@ "eval: " ^ format_val value;
@@ -261,6 +269,17 @@ let rec eval value (env: env) => {
       CallableVal (List.map unwrap_symbol_value args_names) body_value (create_env (Some env));
     }
     | ListVal [SymbolVal "lambda", ...args] => failwith "invalid usage of 'lambda'"
+    | ListVal [SymbolVal "load", SymbolVal name] => {
+      let program = load_file (name ^ ".scm");
+      let tokens = ref (tokenize program);
+      let last_result = ref sym_false;
+      while (!tokens != []) {
+        let value = read_from_tokens (tokens);
+        last_result := eval value env;
+      };
+      !last_result;
+    }
+    | ListVal [SymbolVal "load", ...args] => failwith "invalid usage of 'load'"
     | ListVal [SymbolVal "quote", value_to_quote] => value_to_quote
     | ListVal [SymbolVal "quote", ...args] => failwith "invalid usage of 'quote'"
     | ListVal [SymbolVal "set!", SymbolVal name, value] => {
@@ -381,7 +400,7 @@ let standard_env () => {
     });
   define_builtin "cons" @@ fun args => ListVal (
     switch args {
-      | [new_val, ListVal existing_list] => List.cons new_val existing_list
+      | [new_val, ListVal existing_list] => [new_val, ...existing_list]
       | _ =>  failwith "invalid use of 'cons'"
     });
   define_builtin "eq?" are_referentially_equal;
@@ -469,57 +488,59 @@ let read_eval_print_loop env => {
   }
 };
 
-let test_env = standard_env ();
+if run_tests {
+  let test_env = standard_env ();
 
-print_endline "test stuff";
-let test_expr expr => {
-  let t = Sys.time ();
-  print_endline @@ "test> " ^ expr;
-  read_eval_print expr test_env;
-  Printf.printf "took: %fs\n" (Sys.time () -. t);
-};
+  print_endline "test stuff";
+  let test_expr expr => {
+    let t = Sys.time ();
+    print_endline @@ "test> " ^ expr;
+    read_eval_print expr test_env;
+    Printf.printf "took: %fs\n" (Sys.time () -. t);
+  };
 
-test_expr "(+ 1 2 (* 3 4))";
-test_expr "(+ (* 3 4) 2)";
-test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
+  test_expr "(+ 1 2 (* 3 4))";
+  test_expr "(+ (* 3 4) 2)";
+  test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
 
-test_expr "(define circle-area (lambda (r) (* pi (* r r))))";
-test_expr "(circle-area 3)";
-test_expr "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))";
-test_expr "(fact 10)";
-test_expr "(fact 100)";
-test_expr "(circle-area (fact 10))";
-test_expr "(procedure? map)";
-test_expr "(define first car)";
-test_expr "(define rest cdr)";
-test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (first L)) 1 0) (count item (rest L))) 0)))";
-test_expr "(count 0 (list 0 1 2 3 0 0))";
-test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
-test_expr "(define twice (lambda (x) (* 2 x)))";
-test_expr "(twice 5)";
-test_expr "(define repeat (lambda (f) (lambda (x) (f (f x)))))";
-test_expr "((repeat twice) 10)";
-test_expr "((repeat (repeat twice)) 10)";
-test_expr "((repeat (repeat (repeat twice))) 10)";
-test_expr "((repeat (repeat (repeat (repeat twice)))) 10)";
-test_expr "(pow 2 16)";
-test_expr "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))";
-test_expr "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))";
-test_expr "(range 0 10)";
-test_expr "(map fib (range 0 10))";
-test_expr "(map fib (range 0 20))";
+  test_expr "(define circle-area (lambda (r) (* pi (* r r))))";
+  test_expr "(circle-area 3)";
+  test_expr "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))";
+  test_expr "(fact 10)";
+  test_expr "(fact 100)";
+  test_expr "(circle-area (fact 10))";
+  test_expr "(procedure? map)";
+  test_expr "(define first car)";
+  test_expr "(define rest cdr)";
+  test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (first L)) 1 0) (count item (rest L))) 0)))";
+  test_expr "(count 0 (list 0 1 2 3 0 0))";
+  test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
+  test_expr "(define twice (lambda (x) (* 2 x)))";
+  test_expr "(twice 5)";
+  test_expr "(define repeat (lambda (f) (lambda (x) (f (f x)))))";
+  test_expr "((repeat twice) 10)";
+  test_expr "((repeat (repeat twice)) 10)";
+  test_expr "((repeat (repeat (repeat twice))) 10)";
+  test_expr "((repeat (repeat (repeat (repeat twice)))) 10)";
+  test_expr "(pow 2 16)";
+  test_expr "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))";
+  test_expr "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))";
+  test_expr "(range 0 10)";
+  test_expr "(map fib (range 0 10))";
+  test_expr "(map fib (range 0 20))";
 
-test_expr "(begin
-    (define r 10)
-    (* pi (* r r)))";
+  test_expr "(begin
+      (define r 10)
+      (* pi (* r r)))";
 
-test_expr "(begin
-    (define  sq (lambda (x) (* x x)))
-    (sq 2))";
+  test_expr "(begin
+      (define  sq (lambda (x) (* x x)))
+      (sq 2))";
 
-try (test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
-  | Failure "unexpected EOF while reading list" => print_endline "ok";
-  | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
+  try (test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
+    | Failure "unexpected EOF while reading list" => print_endline "ok";
+    | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
+  };
 };
 
 print_endline "start repl";
