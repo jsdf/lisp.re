@@ -1,0 +1,10 @@
+{
+  "name": "lisp_re",
+  "version": "0.1.0",
+  "sources": [
+    "bin"
+  ],
+  "bs-dependencies" : [
+      // add your bs-dependencies here
+  ]
+}
