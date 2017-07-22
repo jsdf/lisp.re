@@ -58,33 +58,34 @@ let rec format_val = fun value: string => {
 };
 
 /* Read an expression from a sequence of tokens. */
-let rec read_from_tokens (tokens: ref (list string)) => {
-  switch !tokens {
+let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
+  switch !remaining_tokens {
     | [] => failwith "unexpected EOF while reading"
-    | ["(", ...rest] =>
-      tokens := rest;
-      let values_list: ref (list value) = ref [];
-      let at_list_end = ref false;
-      while (not !at_list_end) {
-        switch !tokens {
-        | [] => failwith "unexpected EOF while reading list"
-        | [")", ...rest] =>
-          tokens := rest;
-          at_list_end := true;
-        | _ =>
-          let value = read_from_tokens tokens;
-          values_list := [value, ...!values_list];
-        };
-      };
-      /* we need to reverse values_list because we built the list by prepending
-        values on to the head of the list, meaning that it's 'backwards'
-        (the last value is at the head) */
-      ListVal (List.rev !values_list);
+    | ["(", ...rest] => {
+      remaining_tokens := rest;
+      let values_list: list value = [];
+      read_list_from_tokens remaining_tokens values_list;
+    }
     | [")", ...rest] => failwith "unexpected )"
     | [token, ...rest] => {
-      tokens := rest;
+      remaining_tokens := rest;
       atom token
-    };
+    }
+  };
+} and read_list_from_tokens = fun remaining_tokens values_list => {
+  switch !remaining_tokens {
+    | [] => failwith "unexpected EOF while reading list"
+    | [")", ...rest] => {
+      remaining_tokens := rest;
+      /* we need to reverse values_list because we built the list by using cons to
+      push values on to the head of the list, meaning that it's 'backwards'
+      (the last value is at the head) */
+      ListVal (List.rev values_list);
+    }
+    | _ => {
+      let value = read_from_tokens remaining_tokens;
+      read_list_from_tokens remaining_tokens [value, ...values_list];
+    }
   };
 };
 
