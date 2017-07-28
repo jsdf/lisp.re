@@ -5,6 +5,6 @@
     "bin"
   ],
   "bs-dependencies" : [
-      // add your bs-dependencies here
+    "bs-containers-core"
   ]
 }

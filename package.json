@@ -4,13 +4,19 @@
   "scripts": {
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
-    "watch": "bsb -make-world -w"
+    "watch": "bsb -make-world -w",
+    "wwatch": "http-server public|webpack --watch"
   },
   "keywords": [
     "BuckleScript"
   ],
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "1.8.1"
+    "bs-platform": "^1.8.1"
+  },
+  "dependencies": {
+    "bs-containers-core": "^1.2.0-5",
+    "webpack": "2.5.1",
+    "webpack-dev-server": "2"
   }
 }

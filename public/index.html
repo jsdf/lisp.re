@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Create Reason React App</title>
+  <style>
+    * {
+      font-family: monospace;
+    }
+    #screen {
+      display: block;
+      font-family: monospace;
+      font-size: 16px;
+      border: none;
+      height: 500px;
+      overflow-y: scroll;
+      overflow-x: hidden;
+    }
+    #inputrow {
+      display: flex;
+    }
+    #input {
+      flex: 1;
+      padding-left: 4px;
+      font-family: monospace;
+      font-size: 16px;
+      width: 742px;
+      border: none;
+      outline: none;
+    }
+    #screenborder {
+      border: solid 1px #000;
+    }
+    pre {
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="screenborder">
+    <div id="screen">
+      <div id="inputrow">
+        <div>lisp.re&gt;</div>
+        <input id="input" type="text" />
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+
+</html>

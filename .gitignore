@@ -27,3 +27,5 @@ lib/bs
 
 node_modules
 _build
+lib
+public/main.js

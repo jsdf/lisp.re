@@ -1,9 +1,9 @@
 (jbuild_version 1)
 
 (executable
- ((name lisp)
+ ((name bin)
   ; This will be installable as a global binary
   (public_name lisp)
   ; and it depends on a library from opam
-  (libraries (str))
+  (libraries (containers))
   ))

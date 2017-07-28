@@ -1,0 +1,11 @@
+lib: [
+  "_build/install/default/lib/lisp_re/META" {"META"}
+  "_build/install/default/lib/lisp_re/opam" {"opam"}
+]
+bin: [
+  "_build/install/default/bin/lisp" {"lisp"}
+]
+doc: [
+  "_build/install/default/doc/lisp_re/README.md"
+  "_build/install/default/doc/lisp_re/LICENSE"
+]
