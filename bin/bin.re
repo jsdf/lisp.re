@@ -59,4 +59,5 @@ if run_tests {
 
 print_endline "start repl";
 let global_env = standard_env ();
+load_stdlib global_env;
 read_eval_print_loop global_env;

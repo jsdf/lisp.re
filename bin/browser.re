@@ -83,4 +83,5 @@ if run_tests {
 
 write_out "start repl";
 let global_env = standard_env ();
+load_stdlib global_env;
 js_read_eval_print_loop global_env;

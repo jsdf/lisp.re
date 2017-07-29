@@ -479,6 +479,45 @@ let standard_env () => {
   env;
 };
 
+let load_stdlib env => {
+  let stdlib_text = "
+  (define filter
+    (lambda (fn input)
+      (begin
+        (define res ())
+        (define iter
+          (lambda (input1 res1)
+            (if input1
+              (if (fn (car input1))
+                  (iter (cdr input1) (cons (car input1) res1))
+                  (iter (cdr input1) res1))
+              res1)))
+        (reverse (iter input ())))))
+
+  (define foldl
+    (lambda (fn acc lst)
+      (if lst
+        (foldl fn (fn acc (car lst)) (cdr lst))
+        acc)))
+
+  (define range
+    (lambda (a b)
+      (if (= a b)
+        ()
+        (cons a (range (+ a 1) b)))))
+
+  (define even? (lambda (x) (eq? 0 (round (mod x 2)))))
+
+  (define odd? (lambda (x) (not (even? x))))
+  ";
+
+  let tokens = ref (tokenize stdlib_text);
+  while (!tokens != []) {
+    let value = read_from_tokens (tokens);
+    eval value env |> ignore;
+  };
+};
+
 let read_eval_print program (env: env) => {
   let program_value = parse program;
   let result = eval program_value env;
