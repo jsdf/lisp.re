@@ -364,6 +364,7 @@ let standard_env () => {
   define_builtin "-" @@ apply_arithmetic (-.);
   define_builtin "*" @@ apply_arithmetic (*.);
   define_builtin "/" @@ apply_arithmetic (/.);
+  define_builtin "mod" @@ apply_arithmetic mod_float;
   define_builtin "<" @@ apply_number_comparator (<);
   define_builtin ">" @@ apply_number_comparator (>);
   define_builtin "<=" @@ apply_number_comparator (<=);
@@ -458,6 +459,11 @@ let standard_env () => {
       | [_] => false
       | _ => failwith "invalid usage of 'procedure?'"
     });
+  define_builtin "reverse" @@ fun args =>
+    switch args {
+      | [ListVal x] => ListVal (List.rev x)
+      | _ => failwith "invalid usage of 'reverse'"
+    };
   define_builtin "round" @@ fun args =>
     switch args {
       | [NumberVal x] => NumberVal (floor x)
