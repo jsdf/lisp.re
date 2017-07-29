@@ -129,6 +129,7 @@ let apply_arithmetic func (args: list value) :value => {
 let sym_true = SymbolVal "#t";
 let sym_false = SymbolVal "#f";
 let pi = NumberVal (acos (-1.0));
+let empty_list = ListVal [];
 
 let is_truthy (value: value) => {
   not (switch value {
@@ -255,6 +256,7 @@ let rec eval value (env: env) => {
       }
     };
     | NumberVal _ => value
+    | ListVal [] => empty_list
     | ListVal [SymbolVal "if", test, conseq, alt] => {
       if debug { print_endline @@ "if " ^ (format_val test) ^ (format_val conseq) ^ (format_val alt) };
       let cond_evaluated = eval test env;
