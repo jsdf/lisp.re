@@ -99,8 +99,7 @@ let parse program => {
   let tokens = ref (tokenize program);
   let value = read_from_tokens (tokens);
   if (!tokens != []) {
-    print_endline @@ "parsing finished with tokens remaining: " ^ (String.concat " " !tokens);
-    failwith "parsing finished with tokens remaining";
+    failwith @@ "parsing finished with tokens remaining: " ^ (String.concat " " !tokens);
   };
   value;
 };
@@ -108,21 +107,21 @@ let parse program => {
 let unwrap_number_value (value: value) :float => {
   switch value {
     | NumberVal x => x
-    | _ => failwith "expected number value"
+    | _ => failwith @@ "expected number value, got " ^ (format_val value)
   };
 };
 
 let unwrap_symbol_value (value: value) :string => {
   switch value {
     | SymbolVal x => x
-    | _ => failwith "expected symbol value"
+    | _ => failwith @@ "expected symbol value, got " ^ (format_val value)
   };
 };
 
 let unwrap_list_value (value: value) :list value => {
   switch value {
     | ListVal x => x
-    | _ => failwith "expected list value"
+    | _ => failwith @@ "expected list value, got " ^ (format_val value)
   };
 };
 
@@ -385,9 +384,10 @@ let standard_env () => {
     };
   define_builtin "apply" @@ fun args =>
     switch args {
-      | [maybe_callable, ...callable_args] => {
+      | [maybe_callable, ListVal callable_args] => {
         switch maybe_callable {
           | CallableVal _ => call_callable maybe_callable "[lambda]" callable_args
+          | BuiltinCallableVal name _ _ => call_callable maybe_callable name callable_args
           | _ => failwith "cannot use 'apply' with non-callable first argument"
         }
       }
