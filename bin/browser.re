@@ -24,64 +24,33 @@ let js_read_eval_print_loop env => {
   });
 };
 
-let run_tests = true;
+write_out "
+welcome to lisp.re
 
-if run_tests {
-  let test_env = standard_env ();
 
-  write_out "test stuff";
-  let test_expr expr => {
-    let t = Sys.time ();
-    write_out @@ "test> " ^ expr;
-    write_out @@ js_read_eval_format expr test_env;
-    write_out @@ Printf.sprintf "took: %fs\n" (Sys.time () -. t);
-  };
 
-  test_expr "(+ 1 2 (* 3 4))";
-  test_expr "(+ (* 3 4) 2)";
-  test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5))";
+  here are some things to try:
 
-  test_expr "(define circle-area (lambda (r) (* pi (* r r))))";
-  test_expr "(circle-area 3)";
-  test_expr "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))";
-  test_expr "(fact 10)";
-  test_expr "(fact 100)";
-  test_expr "(circle-area (fact 10))";
-  test_expr "(procedure? map)";
-  test_expr "(define first car)";
-  test_expr "(define rest cdr)";
-  test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (first L)) 1 0) (count item (rest L))) 0)))";
-  test_expr "(count 0 (list 0 1 2 3 0 0))";
-  test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
-  test_expr "(define twice (lambda (x) (* 2 x)))";
-  test_expr "(twice 5)";
-  test_expr "(define repeat (lambda (f) (lambda (x) (f (f x)))))";
-  test_expr "((repeat twice) 10)";
-  test_expr "((repeat (repeat twice)) 10)";
-  test_expr "((repeat (repeat (repeat twice))) 10)";
-  test_expr "((repeat (repeat (repeat (repeat twice)))) 10)";
-  test_expr "(pow 2 16)";
-  test_expr "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))";
-  test_expr "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))";
-  test_expr "(range 0 10)";
-  test_expr "(map fib (range 0 10))";
-  test_expr "(map fib (range 0 20))";
+  add up some numbers:
+    (+ 2 6 8 33 43)
 
-  test_expr "(begin
-      (define r 10)
-      (* pi (* r r)))";
+  define a function to calculate the area of a circle (and use it):
+    (define circle-area (lambda (r) (* pi (pow r 2))))
+    (circle-area 3)
 
-  test_expr "(begin
-      (define  sq (lambda (x) (* x x)))
-      (sq 2))";
+  transform a list of numbers:
+    (define square (lambda (x) (pow x 2)))
+    (map square (list 1 2 3 4 5))
 
-  try (test_expr "(+ 1 2 (* 3 4) (- 5 6) (/ 10 5)") {
-    | Failure "unexpected EOF while reading list" => write_out "ok";
-    | _ => failwith "expected exception Failure(\"unexpected EOF while reading list\")"
-  };
-};
+  calculate the arithmetic mean of a list of numbers:
+    (define mean (lambda (lst) (/ (apply + lst) (length lst))))
+    (mean (list 3.0 3.1 4.10 5.1 6.1 6.2 10))
 
-write_out "start repl";
+  reverse a list of symbols:
+    (reverse (quote (id buy that for a dollar)))
+
+
+";
 let global_env = standard_env ();
 load_stdlib global_env;
 js_read_eval_print_loop global_env;
