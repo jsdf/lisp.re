@@ -7,6 +7,7 @@ let tokenize input: list string => {
     input
       |> (replace sub::"(" by::" ( " )
       |> (replace sub::")" by::" ) ")
+      |> (replace sub::"'" by::" ' ")
       |> (replace sub::"\n" by::"")
       |> split by::" "
   );
@@ -24,6 +25,7 @@ type env = {
   | NumberVal float
   | SymbolVal string
   | ListVal (list value)
+  | QuotedVal value
   | CallableVal (list string) value env
   | BuiltinCallableVal string (list value => value) env;
 
@@ -43,6 +45,7 @@ let rec format_val = fun value: string => {
      let joined = (String.concat " " formatted_items);
      "(" ^ joined ^ ")";
    }
+   | QuotedVal x => "'" ^ (format_val x)
    | NumberVal x => Printf.sprintf "%.12g" x
    | SymbolVal x => x
    | CallableVal args_names body_value _env => {
@@ -59,6 +62,10 @@ let rec format_val = fun value: string => {
 let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
   switch !remaining_tokens {
     | [] => failwith "unexpected EOF while reading"
+    | ["'", ...rest] => {
+      remaining_tokens := rest;
+      QuotedVal (read_from_tokens remaining_tokens);
+    }
     | ["(", ...rest] => {
       remaining_tokens := rest;
       let values_list: list value = [];
@@ -249,6 +256,7 @@ let rec eval value (env: env) => {
   };
 
   let evaluated = switch value {
+    | QuotedVal value_to_quote => value_to_quote
     | SymbolVal name => {
       switch (find_env_with_key env name) {
         | Some env_with_key => get_in_env env_with_key name

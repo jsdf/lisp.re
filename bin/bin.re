@@ -28,7 +28,7 @@ if run_tests {
   test_expr "(define rest cdr)";
   test_expr "(define count (lambda (item L) (if L (+ (if (equal? item (first L)) 1 0) (count item (rest L))) 0)))";
   test_expr "(count 0 (list 0 1 2 3 0 0))";
-  test_expr "(count (quote the) (quote (the more the merrier the bigger the better)))";
+  test_expr "(count (quote the) '(the more the merrier the bigger the better))";
   test_expr "(define twice (lambda (x) (* 2 x)))";
   test_expr "(twice 5)";
   test_expr "(define repeat (lambda (f) (lambda (x) (f (f x)))))";
@@ -38,7 +38,7 @@ if run_tests {
   test_expr "((repeat (repeat (repeat (repeat twice)))) 10)";
   test_expr "(pow 2 16)";
   test_expr "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))";
-  test_expr "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))";
+  test_expr "(define range (lambda (a b) (if (= a b) () (cons a (range (+ a 1) b)))))";
   test_expr "(range 0 10)";
   test_expr "(map fib (range 0 10))";
   test_expr "(map fib (range 0 20))";
