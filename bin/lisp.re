@@ -1,22 +1,68 @@
 let debug = false;
 let debugger_stepping = ref false;
 
-/* Convert a string of characters into a list of tokens. */
-let tokenize input: list string => {
-  let tokens = CCString.(
-    input
-      |> (replace sub::"(" by::" ( " )
-      |> (replace sub::")" by::" ) ")
-      |> (replace sub::"'" by::" ' ")
-      |> (replace sub::"\n" by::"")
-      |> split by::" "
-  );
-  /* filter out empty strings */
-  List.filter (fun token => token != "") tokens;
+type token =
+  | LParenToken
+  | RParenToken
+  | QuoteToken
+  | TextToken string;
+
+let format_token token => {
+  switch token {
+    | LParenToken => "("
+    | RParenToken => ")"
+    | QuoteToken => "'"
+    | TextToken text => text;
+  }
 };
 
-let print_tokens_list list =>
-  print_endline (String.concat " " list);
+/* Convert a string of characters into a list of tokens. */
+let tokenize input => {
+  /* the start and end index of the current text token */
+  let range_start = ref 0;
+  let range_end = ref 0;
+  /* the list of tokens we're building */
+  let tokens = ref [];
+
+  let delimiter_reached delimiter_token => {
+    /* if we've accumulated a non-empty range of text, add a TextToken */
+    if (!range_end > !range_start) {
+      let text = String.sub input !range_start (!range_end - !range_start);
+      tokens := [TextToken text, ...!tokens];
+    };
+    switch delimiter_token {
+      /* add the token representing the delimiter, if provided */
+      | Some token => tokens := [token, ...!tokens];
+      | None => ()
+    };
+    /* start a new text token range at the next char */
+    range_start := !range_end + 1;
+    range_end := !range_end + 1;
+  };
+
+  /* match tokens until we reach the end of the input text */
+  let input_length = String.length input;
+  while (!range_end < input_length) {
+    switch (input.[!range_end]) {
+      /* parens */
+      | '(' => delimiter_reached (Some LParenToken);
+      | ')' => delimiter_reached (Some RParenToken);
+      /* quote */
+      | '\'' => delimiter_reached (Some QuoteToken);
+      /* whitespace */
+      | ' ' => delimiter_reached None;
+      | '\t' => delimiter_reached None;
+      | '\n' => delimiter_reached None;
+      | '\r' => delimiter_reached None;
+      /* any other text char becomes part of a text token */
+      | _ => {
+        /* expand the current text token range to include this character */
+        range_end := !range_end + 1
+      }
+    }
+  };
+  List.rev !tokens;
+};
 
 type env = {
   table: Hashtbl.t string value,
@@ -28,15 +74,6 @@ type env = {
   | QuotedVal value
   | CallableVal (list string) value env
   | BuiltinCallableVal string (list value => value) env;
-
-/* Numbers become numbers; every other token is a symbol. */
-let atom token: value => {
-  try (NumberVal (float_of_string token)) {
-    | Failure "float_of_string" => {
-      SymbolVal token
-    };
-  };
-};
 
 let rec format_val = fun value: string => {
   switch (value) {
@@ -58,33 +95,39 @@ let rec format_val = fun value: string => {
   }
 };
 
+/* Numbers become numbers; every other text token is a symbol. */
+let atom text: value => {
+  try (NumberVal (float_of_string text)) {
+    | Failure "float_of_string" => {
+      SymbolVal text
+    };
+  };
+};
+
 /* Read an expression from a sequence of tokens. */
-let rec read_from_tokens = fun (remaining_tokens: ref (list string)) => {
+let rec read_from_tokens = fun (remaining_tokens: ref (list token)) => {
   switch !remaining_tokens {
     | [] => failwith "unexpected EOF while reading"
-    | ["'", ...rest] => {
+    | [QuoteToken, ...rest] => {
       remaining_tokens := rest;
       QuotedVal (read_from_tokens remaining_tokens);
     }
-    | ["(", ...rest] => {
+    | [LParenToken, ...rest] => {
       remaining_tokens := rest;
       let values_list: list value = [];
       read_list_from_tokens remaining_tokens values_list;
     }
-    | [")", ...rest] => failwith "unexpected )"
-    | [token, ...rest] => {
+    | [RParenToken, ...rest] => failwith "unexpected )"
+    | [TextToken text, ...rest] => {
       remaining_tokens := rest;
-      atom token
+      atom text
     }
   };
 } and read_list_from_tokens = fun remaining_tokens values_list => {
   switch !remaining_tokens {
     | [] => failwith "unexpected EOF while reading list"
-    | [")", ...rest] => {
+    | [RParenToken, ...rest] => {
       remaining_tokens := rest;
-      /* we need to reverse values_list because we built the list by using cons to
-      push values on to the head of the list, meaning that it's 'backwards'
-      (the last value is at the head) */
       ListVal (List.rev values_list);
     }
     | _ => {
@@ -99,7 +142,8 @@ let parse program => {
   let tokens = ref (tokenize program);
   let value = read_from_tokens (tokens);
   if (!tokens != []) {
-    failwith @@ "parsing finished with tokens remaining: " ^ (String.concat " " !tokens);
+    let tokens_string = (String.concat " " (List.map format_token !tokens));
+    failwith @@ "parsing finished with tokens remaining: " ^ tokens_string;
   };
   value;
 };
