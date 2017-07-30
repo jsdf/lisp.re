@@ -220,14 +220,16 @@ let create_env outer :env => {
   };
 };
 
-let rec dump_env (maybe_env: option env) => {
+let rec dump_env ::localonly=false (maybe_env: option env) => {
   switch maybe_env {
     | None => ()
     | Some env => {
       print_endline "Env {";
       Hashtbl.iter (fun k v => print_endline @@ "  " ^ k ^ ": " ^ (format_val v)) env.table;
       print_endline "}";
-      dump_env env.outer;
+      if (not localonly) {
+        dump_env env.outer;
+      }
     }
   };
 };
@@ -248,9 +250,20 @@ let load_file file => {
 let rec eval value (env: env) => {
   if (!debugger_stepping) {
     print_endline @@ "eval: " ^ format_val value;
-    dump_env (Some env);
     print_string "(debugger paused)";
-    read_line () |> ignore;
+    let cmd = ref '0';
+    while (!cmd != 's') {
+      cmd :=
+        try ((read_line ()).[0]) {
+          | Invalid_argument "index out of bounds" => 's'
+        };
+      switch !cmd {
+        | 'e' => debugger_stepping := false
+        | 'l' => dump_env localonly::true (Some env);
+        | 'g' => dump_env (Some env);
+        | _ => ()
+      };
+    };
     print_endline "";
   };
 
@@ -271,6 +284,10 @@ let rec eval value (env: env) => {
       is_truthy (cond_evaluated) ? eval conseq env : eval alt env;
     }
     | ListVal [SymbolVal "if", ...args] => failwith @@ "invalid usage of 'if'"
+    | ListVal [SymbolVal "debug"] => {
+      debugger_stepping := true;
+      sym_false;
+    }
     | ListVal [SymbolVal "define", SymbolVal name, value] => {
       set_in_env env name (eval value env);
       sym_false;
@@ -315,7 +332,7 @@ let rec eval value (env: env) => {
   };
 
   if (!debugger_stepping) {
-    print_endline @@ "evaluated: " ^ (format_val value) ^ " => " ^ (format_val evaluated);
+    print_endline @@ "result: " ^ (format_val value) ^ " => " ^ (format_val evaluated);
   };
   evaluated;
 } and call_by_name (name: string) (args: list value) (env: env) => {
