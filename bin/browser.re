@@ -34,21 +34,20 @@ welcome to lisp.re
   add up some numbers:
     (+ 2 6 8 33 43)
 
-  define a function to calculate the area of a circle (and use it):
-    (define circle-area (lambda (r) (* pi (pow r 2))))
-    (circle-area 3)
+  reverse a list of symbols:
+    (reverse (quote (id buy that for a dollar)))
 
-  transform a list of numbers:
+  define a function to square a number:
+    (define square (lambda (x) (pow x 2)))
+    (square 3)
+
+  calculate the squares of a list of numbers:
     (define square (lambda (x) (pow x 2)))
     (map square (list 1 2 3 4 5))
 
   calculate the arithmetic mean of a list of numbers:
     (define mean (lambda (lst) (/ (apply + lst) (length lst))))
     (mean (list 3.0 3.1 4.10 5.1 6.1 6.2 10))
-
-  reverse a list of symbols:
-    (reverse (quote (id buy that for a dollar)))
-
 
 ";
 let global_env = standard_env ();
