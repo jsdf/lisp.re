@@ -16,34 +16,98 @@ let format_token token => {
   }
 };
 
-/* Convert a string of characters into a list of tokens. */
-let tokenize input => {
-  /* the start and end index of the current text token */
-  let range_start = ref 0;
-  let range_end = ref 0;
-  /* the list of tokens we're building */
-  let tokens = ref [];
+class tokenizer input => {
+  as self;
+  val input = input;
+  val mutable range_start = 0;
+  val mutable range_end = 0;
+  val mutable tokens = [];
 
-  let delimiter_reached delimiter_token => {
+  pri delimiter_reached delimiter_token => {
     /* if we've accumulated a non-empty range of text, add a TextToken */
-    if (!range_end > !range_start) {
-      let text = String.sub input !range_start (!range_end - !range_start);
-      tokens := [TextToken text, ...!tokens];
+    if (range_end > range_start) {
+      let text = String.sub input range_start (range_end - range_start);
+      tokens = [TextToken text, ...tokens];
     };
+    /* add the token representing the delimiter, if provided */
     switch delimiter_token {
-      /* add the token representing the delimiter, if provided */
-      | Some token => tokens := [token, ...!tokens];
+      | Some token => tokens = [token, ...tokens];
       | None => ()
     };
     /* start a new text token range at the next char */
-    range_start := !range_end + 1;
-    range_end := !range_end + 1;
+    range_start = range_end + 1;
+    range_end = range_end + 1;
+  };
+
+  pub tokenize => {
+    /* match tokens until we reach the end of the input text */
+    let input_length = String.length input;
+    while (range_end < input_length) {
+      let current_char = input.[range_end];
+      switch (current_char) {
+        /* parens */
+        | '(' => self#delimiter_reached (Some LParenToken);
+        | ')' => self#delimiter_reached (Some RParenToken);
+        /* quote */
+        | '\'' => self#delimiter_reached (Some QuoteToken);
+        /* whitespace */
+        | ' ' => self#delimiter_reached None;
+        | '\t' => self#delimiter_reached None;
+        | '\n' => self#delimiter_reached None;
+        | '\r' => self#delimiter_reached None;
+        /* any other text char becomes part of a text token */
+        | _ => {
+          /* expand the current token range to include this character */
+          range_end = range_end + 1
+        }
+      }
+    };
+    List.rev tokens;
+  };
+};
+
+let tokenize2 input => {
+  let t = new tokenizer input;
+  t#tokenize;
+};
+
+type tokenize_state = {
+  mutable range_start: int,
+  mutable range_end: int,
+  mutable tokens: list token,
+};
+
+/* Convert a string of characters into a list of tokens. */
+let tokenize3 input => {
+  let state = {
+    /* the start and end index of the current token */
+    range_start: 0,
+    range_end: 0,
+    /* the list of tokens we're building */
+    tokens: [],
+  };
+
+  let delimiter_reached delimiter_token => {
+    /* if we've accumulated a non-empty range of text, add a TextToken */
+    if (state.range_end > state.range_start) {
+      let text = String.sub input state.range_start (state.range_end - state.range_start);
+      state.tokens = [TextToken text, ...state.tokens];
+    };
+    /* add the token representing the delimiter, if provided */
+    switch delimiter_token {
+      | Some token => state.tokens = [token, ...state.tokens];
+      | None => ()
+    };
+    /* start a new text token range at the next char */
+    state.range_start = state.range_end + 1;
+    state.range_end = state.range_end + 1;
   };
 
   /* match tokens until we reach the end of the input text */
   let input_length = String.length input;
-  while (!range_end < input_length) {
-    switch (input.[!range_end]) {
+  while (state.range_end < input_length) {
+    let current_char = input.[state.range_end];
+    switch (current_char) {
       /* parens */
       | '(' => delimiter_reached (Some LParenToken);
       | ')' => delimiter_reached (Some RParenToken);
@@ -56,7 +120,56 @@ let tokenize input => {
       | '\r' => delimiter_reached None;
       /* any other text char becomes part of a text token */
       | _ => {
-        /* expand the current text token range to include this character */
+        /* expand the current token range to include this character */
+        state.range_end = state.range_end + 1
+      }
+    }
+  };
+  List.rev state.tokens;
+};
+
+/* Convert a string of characters into a list of tokens. */
+let tokenize input => {
+  /* the start and end index of the current token */
+  let range_start = ref 0;
+  let range_end = ref 0;
+  /* the list of tokens we're building */
+  let tokens = ref [];
+
+  let delimiter_reached delimiter_token => {
+    /* if we've accumulated a non-empty range of text, add a TextToken */
+    if (!range_end > !range_start) {
+      let text = String.sub input !range_start (!range_end - !range_start);
+      tokens := [TextToken text, ...!tokens];
+    };
+    /* add the token representing the delimiter, if provided */
+    switch delimiter_token {
+      | Some token => tokens := [token, ...!tokens];
+      | None => ()
+    };
+    /* start a new text token range at the next char */
+    range_start := !range_end + 1;
+    range_end := !range_end + 1;
+  };
+
+  /* match tokens until we reach the end of the input text */
+  let input_length = String.length input;
+  while (!range_end < input_length) {
+    let current_char = input.[!range_end];
+    switch (current_char) {
+      /* parens */
+      | '(' => delimiter_reached (Some LParenToken);
+      | ')' => delimiter_reached (Some RParenToken);
+      /* quote */
+      | '\'' => delimiter_reached (Some QuoteToken);
+      /* whitespace */
+      | ' ' => delimiter_reached None;
+      | '\t' => delimiter_reached None;
+      | '\n' => delimiter_reached None;
+      | '\r' => delimiter_reached None;
+      /* any other text char becomes part of a text token */
+      | _ => {
+        /* expand the current token range to include this character */
         range_end := !range_end + 1
       }
     }
