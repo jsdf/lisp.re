@@ -14,15 +14,20 @@ lisp.re> (square 2)
 
 The main source can be found in [this file](https://github.com/jsdf/lisp.re/blob/master/bin/lisp.re)
 
+[Try it in the browser](https://jsdf.github.io/lisp.re/)
+
 This codebase can be built for both Javascript and native targets.
 
 # web
 
+To build this repo for the Javascript/web target, first check it out, then:
+
 ```sh
-yarn watch
-# then, in another terminal window
-yarn wwatch
+yarn
+yarn dev
 ```
+
+Then open http://localhost:1234/
 
 # native
 
