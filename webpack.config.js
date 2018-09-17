@@ -1,18 +1,15 @@
-const path = require('path');
+const path = require("path");
 
 module.exports = {
-  entry: [
-    './process-shim.js',
-    './lib/js/bin/browser.js',
-  ],
+  entry: ["./process-shim.js", "./lib/js/bin/browser.js"],
   output: {
-    filename: '[name].js',
-    path: path.join(__dirname, './public'),
-    publicPath: '/public'
+    filename: "[name].js",
+    path: path.join(__dirname, "./docs"),
+    publicPath: "/docs"
   },
   resolve: {
     alias: {
-      bin: path.resolve(__dirname, 'bin/'),
-    },
-  },
+      bin: path.resolve(__dirname, "bin/")
+    }
+  }
 };

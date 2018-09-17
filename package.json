@@ -5,7 +5,10 @@
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w",
-    "wwatch": "http-server public|webpack --watch"
+    "wwatch": "http-server docs|webpack --watch",
+    "wbuild": "NODE_ENV=production webpack",
+    "prod": "yarn build; yarn wbuild",
+    "pages": "yarn prod; git add -A; git commit -m 'update website'; git push origin master"
   },
   "keywords": [
     "BuckleScript"
