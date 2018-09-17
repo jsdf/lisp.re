@@ -311,6 +311,19 @@ let rec eval = (value, env: env) => {
   let evaluated =
     switch (value) {
     | QuotedVal(value_to_quote) => value_to_quote
+    | SymbolVal("help") =>
+      print_endline(
+        "special forms are: define, if, lambda, load, quote, set!\n"
+        ++ "available values are: "
+        ++ String.concat(
+             ", ",
+             List.sort(
+               compare,
+               Hashtbl.fold((k, v, acc) => [k, ...acc], env.table, []),
+             ),
+           ),
+      );
+      sym_false;
     | SymbolVal(name) =>
       switch (find_env_with_key(env, name)) {
       | Some(env_with_key) => get_in_env(env_with_key, name)
@@ -632,6 +645,7 @@ let standard_env = () => {
         },
       )
   );
+
   env;
 };
 
