@@ -636,7 +636,36 @@ let standard_env = () => {
 };
 
 let load_stdlib = env => {
-  let stdlib_text = "\n  (define filter\n    (lambda (fn input)\n      (begin\n        (define res ())\n        (define iter\n          (lambda (input1 res1)\n            (if input1\n              (if (fn (car input1))\n                  (iter (cdr input1) (cons (car input1) res1))\n                  (iter (cdr input1) res1))\n              res1)))\n        (reverse (iter input ())))))\n\n  (define foldl\n    (lambda (fn acc lst)\n      (if lst\n        (foldl fn (fn acc (car lst)) (cdr lst))\n        acc)))\n\n  (define range\n    (lambda (a b)\n      (if (= a b)\n        ()\n        (cons a (range (+ a 1) b)))))\n\n  (define even? (lambda (x) (eq? 0 (round (mod x 2)))))\n\n  (define odd? (lambda (x) (not (even? x))))\n  ";
+  let stdlib_text = "
+    (define filter
+      (lambda (fn input)
+        (begin
+          (define res ())
+          (define iter
+            (lambda (input1 res1)
+              (if input1
+                (if (fn (car input1))
+                    (iter (cdr input1) (cons (car input1) res1))
+                    (iter (cdr input1) res1))
+                res1)))
+          (reverse (iter input ())))))
+
+    (define foldl
+      (lambda (fn acc lst)
+        (if lst
+          (foldl fn (fn acc (car lst)) (cdr lst))
+          acc)))
+
+    (define range
+      (lambda (a b)
+        (if (= a b)
+          ()
+          (cons a (range (+ a 1) b)))))
+
+    (define even? (lambda (x) (eq? 0 (round (mod x 2)))))
+
+    (define odd? (lambda (x) (not (even? x))))
+    ";
   let tokens = ref(tokenize(stdlib_text));
   while (tokens^ != []) {
     let value = read_from_tokens(tokens);
