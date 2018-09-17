@@ -5,7 +5,7 @@
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w",
-    "dev": "yarn watch|yarn parcel-dev",
+    "dev": "yarn parcel-dev|yarn watch",
     "parcel-dev": "parcel public/index.html",
     "parcel-prod": "rm docs/*; parcel build public/index.html --out-dir docs/ --public-url /lisp.re/",
     "pages": "yarn parcel-prod; git add -A; git commit -m 'update website'; git push origin master"
