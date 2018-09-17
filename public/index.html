@@ -6,9 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>lisp.re</title>
   <style>
-    * {
-      font-family: monospace;
-    }
     #screen {
       display: block;
       font-family: monospace;
@@ -17,6 +14,7 @@
       height: 500px;
       overflow-y: scroll;
       overflow-x: hidden;
+      padding: 1px
     }
     #inputrow {
       display: flex;
@@ -36,10 +34,20 @@
     pre {
       margin: 0;
     }
+    .github-link {
+      display: flex;
+      justify-content: flex-end;
+      font-size: 16px;
+      font-family: sans-serif;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 
 <body>
+  <div class="github-link">
+    <a href="https://github.com/jsdf/lisp.re">source on github</a>
+  </div>
   <div id="screenborder">
     <div id="screen">
       <div id="inputrow">
