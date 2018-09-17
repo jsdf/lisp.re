@@ -5,21 +5,23 @@
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w",
-    "wwatch": "http-server docs|webpack --watch",
-    "wbuild": "NODE_ENV=production webpack",
-    "prod": "yarn build; yarn wbuild",
-    "pages": "yarn prod; git add -A; git commit -m 'update website'; git push origin master"
+    "dev": "yarn watch|yarn parcel-dev",
+    "parcel-dev": "parcel public/index.html",
+    "parcel-prod": "rm docs/*; parcel build public/index.html --out-dir docs/ --public-url /lisp.re/",
+    "pages": "yarn parcel-prod; git add -A; git commit -m 'update website'; git push origin master"
   },
   "keywords": [
     "BuckleScript"
   ],
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "^2.0.0"
+    "bs-platform": "^2.0.0",
+    "parcel": "^1.9.7"
+  },
+  "alias": {
+    "bin": "./bin"
   },
   "dependencies": {
-    "bs-containers-core": "^1.2.0-5",
-    "webpack": "2.5.1",
-    "webpack-dev-server": "2"
+    "bs-containers-core": "^1.2.0-5"
   }
 }
