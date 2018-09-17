@@ -6,6 +6,6 @@ bin: [
   "_build/install/default/bin/lisp" {"lisp"}
 ]
 doc: [
-  "_build/install/default/doc/lisp_re/README.md"
   "_build/install/default/doc/lisp_re/LICENSE"
+  "_build/install/default/doc/lisp_re/README.md"
 ]
