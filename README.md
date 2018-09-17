@@ -18,7 +18,7 @@ The main source can be found in [this file](https://github.com/jsdf/lisp.re/blob
 
 This codebase can be built for both Javascript and native targets.
 
-# web
+## web
 
 To build this repo for the Javascript/web target, first check it out, then:
 
@@ -29,7 +29,7 @@ yarn dev
 
 Then open http://localhost:1234/
 
-# native
+## native
 
 Clone the repo and run these commands from within the project:
 
