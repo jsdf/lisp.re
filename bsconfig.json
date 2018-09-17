@@ -4,6 +4,7 @@
   "sources": [
     "bin"
   ],
+  "refmt": 3,
   "bs-dependencies" : [
     "bs-containers-core"
   ]

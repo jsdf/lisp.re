@@ -291,9 +291,9 @@ bs-containers-core@^1.2.0-5:
   version "1.2.0-5"
   resolved "https://registry.yarnpkg.com/bs-containers-core/-/bs-containers-core-1.2.0-5.tgz#abf6f7d8f2ebc52978ee3a2c4d49e2702e10991f"
 
-bs-platform@^1.8.1:
-  version "1.8.1"
-  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-1.8.1.tgz#467beaa28756b0e67ddc340274de1759caba0429"
+bs-platform@^2.0.0:
+  version "2.2.3"
+  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-2.2.3.tgz#d905ae10a5f3621e6a739041dfa0b58483a2174f"
 
 buffer-indexof@^1.0.0:
   version "1.1.0"

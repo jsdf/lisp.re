@@ -12,7 +12,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "^1.8.1"
+    "bs-platform": "^2.0.0"
   },
   "dependencies": {
     "bs-containers-core": "^1.2.0-5",
